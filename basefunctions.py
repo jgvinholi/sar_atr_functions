@@ -127,21 +127,23 @@ def get_images(whole_set):
 
 
 
-
 # Save model_conv/model_classconv:
 def save_modelconv(modelvar, foldername, kfold):
   basepath = 'models/trainval/'
   modeldir = basepath + foldername + '/'
-  os.mkdir(modeldir)
+  try:
+    os.mkdir(modeldir)
+  except FileExistsError:
+    pass  
 
   if kfold:
     for i, mod in enumerate(modelvar):
       mod.save(modeldir + "model_conv_" + str(i) + ".h5")
     with open(modeldir + 'summary.txt','w') as fh:
     # Pass the file handle in as a lambda function to make it callable
-      model_conv[0].summary(print_fn=lambda x: fh.write(x + '\n'))
+      modelvar[0].summary(print_fn=lambda x: fh.write(x + '\n'))
   else:
-    model_conv.save(modeldir + "model_conv.h5")
+    modelvar.save(modeldir + "model_conv.h5")
 
 
 # Load model_conv/model_classconv:
