@@ -5,7 +5,7 @@
 Define our custom loss function.
 """
 from tensorflow.keras import backend as K
-import tensorflow as tff
+import tensorflow as tf
 
 import dill
 

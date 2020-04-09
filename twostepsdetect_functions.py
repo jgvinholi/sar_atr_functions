@@ -133,12 +133,11 @@ def gen_multiple_classification_gt(Images_vector, img_names, noiseprop_vec, save
 
   # Save all windows as single variable
   if save:
-    with open(datab_imgs_path + 'classification_data/' + 'xy_classification_noaug.pkl' , 'wb') as f:  # Python 3: open(..., 'wb')
-      pickle.dump([X_full_pixval_class_window, Y_class_window, noiseprop_vec], f)
+    with open(datab_imgs_path + 'classification_data/' + 'xy_classification.pkl' , 'wb') as f:  # Python 3: open(..., 'wb')
+      pickle.dump([X_full_pixval_class_window, Y_class_window], f)
       print('saved')
 
   return X_full_pixval_class_window, Y_class_window
-
 
 
 
@@ -147,7 +146,7 @@ def load_multiple_classification_gt():
   # Load all windows that went through the noise data augmentation:
   with open(datab_imgs_path + 'classification_data/' + 'xy_classification.pkl' , 'rb') as f:  # Python 3: open(..., 'wb')
     try:
-      X_full_pixval_class_window, Y_class_window, noiseprop_vec = pickle.load(f)
+      X_full_pixval_class_window, Y_class_window = pickle.load(f)
     except:
       X_full_pixval_class_window, Y_class_window = pickle.load(f)
     print('loaded')
@@ -157,7 +156,6 @@ def load_multiple_classification_gt():
     X_full_pixval_class_window_noaug, Y_class_window_noaug = pickle.load(f)
     print('loaded')
   return X_full_pixval_class_window, Y_class_window, X_full_pixval_class_window_noaug, Y_class_window_noaug
-
 
 
 
@@ -176,7 +174,6 @@ def predict_image(model_conv, img_name, kfold, whole_set):
   else:
     Target_map = np.reshape( model_conv.predict(Image_vec_norm, verbose = 1), (3000, 2000) )
   return Target_map
-
 
 
 
@@ -223,8 +220,6 @@ def predict_class(model_classconv, img_name, trainval_dataset, cluster_center):
   prediction = model_classconv[kfold_index].predict(Pred_window, verbose = 0)
 
   return prediction
-
-
 
 
 
@@ -339,10 +334,6 @@ def find_clusters_andsave(model_classconv, Pred, detect_thresh, classif_thresh, 
 
 
 
-
-
-
-
 # This function recieves the predetection heatmap, calls the cluster localization function 'find_clusters_andsave' and calculates the detection performance indicators (true positive rate, false alarm rate, etc).
 def detection_perfomance(model_conv, model_classconv, Pred, detect_thresh, classif_thresh, img_name, save):
 
@@ -401,11 +392,6 @@ def detection_perfomance(model_conv, model_classconv, Pred, detect_thresh, class
 
 
 
-
-
-
-
-
 # Given a list of images, execute the whole prediction and classification process and save all obtained information and position of targets.
 def predict_and_save(model_conv, model_classconv, img_names, detect_thresh, classif_thresh, save):
   if (type(img_names) != list): img_names = [img_names]
@@ -427,10 +413,6 @@ def predict_and_save(model_conv, model_classconv, img_names, detect_thresh, clas
     print(" %d    %d    %d    %s" % (tp[i], fp[i], fn[i], img_name))
     
   return detected_targets, false_positives
-
-
-
-
 
 
 
@@ -461,10 +443,6 @@ def roc_classif(model_conv, model_classconv, img_name, img_dataset, detect_thres
     best_classif_threshs = classif_threshs[best_classif_threshs_index] 
     print("Best classif_threshs = %.4f, with F1-score = %.4f ." % (best_classif_threshs, best_f1) ) # The f1-score is just informative.
     return Pred_mask, f1_score, precision, recall, fpr, detected_targets, undetected_targets, false_positives, best_classif_threshs, best_classif_threshs_index
-
-
-
-
 
 
 
