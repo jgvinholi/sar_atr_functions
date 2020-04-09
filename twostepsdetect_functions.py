@@ -1,3 +1,6 @@
+from all_imports import *
+
+
 # Definition of a simple class containing properties about speckle and gaussian noise.
 class noiseStruct(object):
   def __init__(self, speckle_mean, speckle_var, gaussian_var, aug_negat_prob):
