@@ -1,5 +1,3 @@
-%tensorflow_version 2.x
-
 from matplotlib.image import imread
 from matplotlib import rcParams
 import matplotlib.pyplot as plt

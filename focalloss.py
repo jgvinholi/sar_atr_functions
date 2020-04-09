@@ -4,8 +4,6 @@
 """
 Define our custom loss function.
 """
-from all_imports import *
-
 from tensorflow.keras import backend as K
 import tensorflow as tff
 

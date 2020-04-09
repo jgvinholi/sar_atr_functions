@@ -1,9 +1,57 @@
-from all_imports import *
+from matplotlib.image import imread
+from matplotlib import rcParams
+import matplotlib.pyplot as plt
+import cv2
+import numpy as np
+import scipy
+import os, glob
+import pickle
+from sklearn.model_selection import KFold
+from sklearn.preprocessing import StandardScaler
+from sklearn.utils import class_weight
+from sklearn.cluster import DBSCAN
+from scipy.cluster.hierarchy import fclusterdata
+from numba import jit, njit
+import warnings
+from operator import itemgetter 
+from joblib import Parallel, delayed
+import multiprocessing
+from tensorflow.keras.models import Model, load_model # Need by tpu
+from focalloss import *
+
+
+rcParams['figure.figsize'] = [12, 18]
+cwd = os.getcwd()
+orig_imgs_folder = "Img/original/"
+datab_imgs_folder = "Img/database/"
+orig_imgs_path = os.path.join(cwd, orig_imgs_folder)
+datab_imgs_path = os.path.join(cwd, datab_imgs_folder)
+im_dims = (3000, 2000)
+overlap = 10  # Minimum target size.
+window_size = 24 + overlap # 20x20 px window. 12 is the minimum distance between two targets and 5 is the minimum target size.
+
+
+# set of test images:
+test_set = ['M2P1_M3P1', 'M3P2_M5P2',  'M4P3_M3P3', 'M5P4_M2P4']
+# set of train+validation images:
+img_names = ['M2P2_M4P2', 'M2P3_M5P3', 'M2P4_M3P4', 'M2P5_M4P5', 'M2P6_M5P6', 'M3P1_M4P1', 'M3P3_M2P3', 'M3P4_M4P4', 'M3P5_M5P5', 'M3P6_M2P6', 'M4P1_M5P1', 'M4P2_M2P2', 'M4P4_M5P4', 'M4P5_M2P5', 'M4P6_M3P6', 'M5P1_M2P1', 'M5P2_M3P2', 'M5P3_M4P3', 'M5P5_M3P5', 'M5P6_M4P6']
+# train and validation splitting:
+validation_index = [0, 5, 12, 19]
+train_index = [1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18]
+validation_set = itemgetter(*validation_index)(img_names)
+training_set = itemgetter(*train_index)(img_names)
+# set of all images:
+whole_set = img_names + test_set
+print("Validation images: " + str( validation_set ))
+print("Training images: " + str( training_set ) )
+print("Overlap = " + str(overlap) + "px. Window Size = " + str (window_size) + "px." )
+
 
 
 
 def bwimg(impath): # Get black and white image array
     return np.mean(cv2.imread(impath), axis = 2)
+
 
 def showimg(img): # Displays image
     plt.imshow(img, cmap="gray")
@@ -167,3 +215,6 @@ def load_modelconv(foldername, kfold):
     model_conv = load_model(modeldir + "model_conv.h5")
   
   return model_conv
+
+
+Images_vector, Images_vector_norm, Y_full = get_images(whole_set)

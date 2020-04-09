@@ -1,5 +1,23 @@
-from all_imports import *
-
+from matplotlib.image import imread
+from matplotlib import rcParams
+import matplotlib.pyplot as plt
+import cv2
+import numpy as np
+import scipy
+import os, glob
+import pickle
+from sklearn.model_selection import KFold
+from sklearn.preprocessing import StandardScaler
+from sklearn.utils import class_weight
+from sklearn.cluster import DBSCAN
+from scipy.cluster.hierarchy import fclusterdata
+from numba import jit, njit
+import warnings
+from operator import itemgetter 
+from joblib import Parallel, delayed
+import multiprocessing
+from focalloss import *
+from basefunctions import *
 
 # Definition of a simple class containing properties about speckle and gaussian noise.
 class noiseStruct(object):
@@ -139,7 +157,7 @@ def load_multiple_classification_gt():
 
 # This function generates the binary heatmap by evaluating the binary predetection model. 
 # KFold index is determined by the position of the specified 'img_name' in the 'whole_set' list. 
-def predict_image(img_name, kfold, whole_set):
+def predict_image(model_conv, img_name, kfold, whole_set):
   Image_vec_norm = standardize_pixels( bwimg( os.path.join(datab_imgs_path, img_name + ".jpg") ) )
   Image_vec_norm = np.reshape(Image_vec_norm, (1, Image_vec_norm.shape[0], Image_vec_norm.shape[1], 1) )
   if kfold:
@@ -158,7 +176,7 @@ def predict_image(img_name, kfold, whole_set):
 
 # This function receives one cluster center of a potential target and applies the classification prediction model at the pixels near it.
 # The cluster center will be the center coordinate of the window to be processed by the classification model.
-def predict_class(img_name, trainval_dataset, cluster_center):
+def predict_class(model_classconv, img_name, trainval_dataset, cluster_center):
   n_split = len(trainval_dataset)//4
   n_images = len(trainval_dataset)
   try:
@@ -207,7 +225,7 @@ def predict_class(img_name, trainval_dataset, cluster_center):
 # Based on the predetection heatmap, this function localizes all detection clusters and calculates its centers by an weighted mean.
 # Three choices of clustering techniques: morphological (advantages: none), DBSCAN (good noise suppression, best perfomance and smoother ROC), agglomerative (smooth ROC, but very noisy).
 # DBSCAN is the technique of choice.
-def find_clusters_andsave(Pred, detect_thresh, classif_thresh, img_name, trainval_dataset, save):
+def find_clusters_andsave(model_classconv, Pred, detect_thresh, classif_thresh, img_name, trainval_dataset, save):
   clustering = "dbscan"
   n_split = len(trainval_dataset)//4
   n_images = len(trainval_dataset)
@@ -237,7 +255,7 @@ def find_clusters_andsave(Pred, detect_thresh, classif_thresh, img_name, trainva
         class_member_mask = (clusters.labels_ == k)
         class_members = candidates_coordinates[class_member_mask, :]
         possible_clusters[j, :] = np.average( class_members, axis = 0, weights = np.power(candidates_predval[class_member_mask], 2 ) ).astype('int32') # For each cluster, calculates the average position of all cluster members, weighted by the heatmap value of each member. 
-        possible_clusters_probs[j] = np.reshape( predict_class(img_name, trainval_dataset, possible_clusters[j, :]), 1)
+        possible_clusters_probs[j] = np.reshape( predict_class(model_classconv, img_name, trainval_dataset, possible_clusters[j, :]), 1)
         if possible_clusters_probs[j] > classif_thresh:
           clusters_centers.append( possible_clusters[j, :]  ) # If the classificator returns a value bigger than 'classif_thresh', the cluster will be assumed to be a target.
         j += 1
@@ -320,7 +338,7 @@ def find_clusters_andsave(Pred, detect_thresh, classif_thresh, img_name, trainva
 
 
 # This function recieves the predetection heatmap, calls the cluster localization function 'find_clusters_andsave' and calculates the detection performance indicators (true positive rate, false alarm rate, etc).
-def detection_perfomance(Pred, detect_thresh, classif_thresh, img_name, save):
+def detection_perfomance(model_conv, model_classconv, Pred, detect_thresh, classif_thresh, img_name, save):
 
   detected_targets = np.zeros((1, 2))
   undetected_targets = np.zeros((1, 2))
@@ -328,12 +346,12 @@ def detection_perfomance(Pred, detect_thresh, classif_thresh, img_name, save):
   Img_GT_mask = np.zeros((3000, 2000))
 
   if (Pred == 0).all():
-    Pred = predict_image(img_name, 1, img_names) # Generates the predetection heatmap if none is provided.
+    Pred = predict_image(model_conv, img_name, 1, img_names) # Generates the predetection heatmap if none is provided.
 
   Pred_mask = Pred > detect_thresh # Apply detection threshold to generate the binary map.
 
   # Retreive clusters from predetection heatmap:
-  _, cluster_centers = find_clusters_andsave(Pred, detect_thresh, classif_thresh, img_name, img_names, save)
+  _, cluster_centers = find_clusters_andsave(model_classconv, Pred, detect_thresh, classif_thresh, img_name, img_names, save)
   
   # Get ground truth position of target pixels:
   tmp_mat = np.loadtxt(datab_imgs_path + "labels/" + img_name + ".txt", delimiter = ' ', usecols = range(4))
@@ -383,14 +401,14 @@ def detection_perfomance(Pred, detect_thresh, classif_thresh, img_name, save):
 
 
 # Given a list of images, execute the whole prediction and classification process and save all obtained information and position of targets.
-def predict_and_save(img_names, detect_thresh, classif_thresh, save):
+def predict_and_save(model_conv, model_classconv, img_names, detect_thresh, classif_thresh, save):
   if (type(img_names) != list): img_names = [img_names]
   Pred_mask, Predicted_clusters, cluster_centers = np.empty((len(img_names)), dtype=object), np.empty((len(img_names)), dtype=object), np.empty((len(img_names)), dtype=object)
   tp, fp, fn = np.zeros(len(img_names)), np.zeros(len(img_names)), np.zeros(len(img_names))
   
   # Execute 'detection_performance' function in parallel for all images in 'img_names'. Use 'detect_thresh' and 'classif_thresh' as the predetection binary threshold and classification threshold:
   parallel_detectperf = Parallel(n_jobs = 4, backend = 'threading')(
-      delayed(detection_perfomance)(0, detect_thresh, classif_thresh, img_names[i], save) for i in range( len(img_names) ) )
+      delayed(detection_perfomance)(model_conv, model_classconv, 0, detect_thresh, classif_thresh, img_names[i], save) for i in range( len(img_names) ) )
   f1_score, precision, recall, fpr, detected_targets, undetected_targets, false_positives = zip(*parallel_detectperf)
   
   # Generate a table containing the number of detected targets, false positives and undetected targets for each prediction:
@@ -411,18 +429,18 @@ def predict_and_save(img_names, detect_thresh, classif_thresh, save):
 
 
 # This function executes the 'detection_perfomance' function for each classification model threshold, specified by 'classif_threshs' array, and plots the ROC curve (if requested).
-def roc_classif(img_name, img_dataset, detect_thresh, classif_threshs, plot, predict, Pred_mask, kfold):
+def roc_classif(model_conv, model_classconv, img_name, img_dataset, detect_thresh, classif_threshs, plot, predict, Pred_mask, kfold):
     detected_targets, undetected_targets, false_positives = np.empty((len(classif_threshs)), dtype=object), np.empty((len(classif_threshs)), dtype=object), np.empty((len(classif_threshs)), dtype=object)
     f1_score, precision, recall, fpr = np.zeros( len(classif_threshs) ), np.zeros( len(classif_threshs) ), np.zeros( len(classif_threshs) ), np.zeros( len(classif_threshs) )
     classif_threshs = np.sort(classif_threshs, axis=None)
 
     # Call the predetection predictor if requested to get the prediction heatmap:
     if predict == 1:
-      Pred_mask = np.reshape( predict_image(img_name, 1, img_dataset), (3000, 2000) ) if kfold else np.reshape( predict_image(img_name, 0, 0), (3000, 2000) )
+      Pred_mask = np.reshape( predict_image(model_conv, img_name, 1, img_dataset), (3000, 2000) ) if kfold else np.reshape( predict_image(img_name, 0, 0), (3000, 2000) )
     
     # With the provided prediction heatmap, find cluster, make the classification prediction and calculate the perfomance parameters for all classification thresholds 'classif_threshs':
     for i in range(len( classif_threshs ) ) :
-      f1_score[i], precision[i], recall[i], fpr[i], detected_targets[i], undetected_targets[i], false_positives[i] = detection_perfomance(Pred_mask, detect_thresh, classif_threshs[i], img_name, 0)
+      f1_score[i], precision[i], recall[i], fpr[i], detected_targets[i], undetected_targets[i], false_positives[i] = detection_perfomance(model_conv, model_classconv, Pred_mask, detect_thresh, classif_threshs[i], img_name, 0)
     
     if plot:
       plt.grid(True)
@@ -446,12 +464,12 @@ def roc_classif(img_name, img_dataset, detect_thresh, classif_threshs, plot, pre
 
 
 # This function executes 'roc_classif' for multiple images and calculates the ROC curve based on the information from all tested images.
-def roc_multiple_images(img_names, img_dataset, classif_threshs, detect_thresh, kfold):
+def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, classif_threshs, detect_thresh, kfold):
   best_f1_scores, best_precisions, best_recalls, best_fprs, best_thresholds = np.zeros( len(img_names) ), np.zeros( len(img_names) ), np.zeros( len(img_names) ), np.zeros( len(img_names) ), np.zeros( len(img_names) )
   mean_f1_scores, mean_precisions, mean_recalls, mean_fprs = np.zeros( len(classif_threshs) ), np.zeros( len(classif_threshs) ), np.zeros( len(classif_threshs) ), np.zeros( len(classif_threshs) )
 
   # Parallelize calls to 'roc_classif' to speed up the process:
-  parallel_vars = Parallel(n_jobs=4, backend = 'threading', verbose = 10, max_nbytes = '100M')( delayed(roc_classif)(img_names[i], img_dataset, detect_thresh, classif_threshs, 0, 1, 0, kfold) for i in range( len(img_names) ))
+  parallel_vars = Parallel(n_jobs=4, backend = 'threading', verbose = 10, max_nbytes = '100M')( delayed(roc_classif)(model_conv, model_classconv, img_names[i], img_dataset, detect_thresh, classif_threshs, 0, 1, 0, kfold) for i in range( len(img_names) ))
   _, f1_score, precision, recall, fpr, _, _, _, best_threshold, best_threshold_index = zip(*parallel_vars)
   mean_f1_scores, mean_precisions, mean_recalls, mean_fprs = np.mean(np.array(f1_score), axis = 0), np.mean(np.array(precision), axis = 0), np.mean(np.array(recall), axis = 0) ,np.mean(np.array(fpr), axis = 0)
   
