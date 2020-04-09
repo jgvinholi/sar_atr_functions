@@ -512,5 +512,3 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
 
 
 
-
-
