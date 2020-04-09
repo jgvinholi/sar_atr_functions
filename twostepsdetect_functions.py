@@ -40,7 +40,7 @@ def add_speckle_noise_to_img(Image, speckle_mean, speckle_variance, gaussian_var
 
 # This function cuts the specified image vector into multiple square windows to be used in training and validation. 
 # Data augmentation with noise also takes place below.
-def gen_classification_gt(Images_vector, img_name, window_size, overlap, noiseproperties):
+def gen_classification_gt(Images_vector, img_name, window_size, overlap, noiseproperties_vec):
   print(img_name)
   effective_wsize = window_size - overlap
   npixels_vert = im_dims[0]
@@ -82,30 +82,33 @@ def gen_classification_gt(Images_vector, img_name, window_size, overlap, noisepr
               X_full_pixval_class_window[wind_h + wind_v*nblocks_horiz, wpos_v, wpos_h] = 0
 
 
-  addnoise = 0
+  addnoise = 1
   if addnoise:
-    print("Adding multiplicative noise radomly to nontarget windows.")
+    print("Adding multiplicative and additive noise radomly to nontarget windows. Augmenting database with noisy target windows.")
 
-    # Adding noise to the negative windows with a rate of 'noiseproperties.aug_negat_prob'. Noisy positive windows are added to the dataset,
+    # Adding noise to the negative windows with a rate of 'noiseproperties_vec[i_noisevec].aug_negat_prob'. Noisy positive windows are added to the dataset,
     # mantaining all non-noisy positive windows.
-    npositives = np.sum(Y_class_window[:, 0] == 1)
+    npositives = np.sum(Y_class_window[:, 0] == 1)*len(noiseproperties_vec)
     X_noisypositives = np.zeros( ( npositives, X_full_pixval_class_window.shape[1], X_full_pixval_class_window.shape[2] ) )
     Y_noisypositives = np.ones( (npositives, 1) )
     j_pos = 0
     for i_block, block_class in enumerate(Y_class_window[:, 0]):
-      if int(block_class) == 0:
-        addnegnoise = scipy.stats.bernoulli.rvs(noiseproperties.aug_negat_prob)
-        if addnegnoise:
-          X_full_pixval_class_window[i_block, :, :] = add_speckle_noise_to_img(X_full_pixval_class_window[i_block, :, :], noiseproperties.speckle_mean, noiseproperties.speckle_var, noiseproperties.gaussian_var)
-      elif int(block_class) == 1:
-        X_noisypositives[j_pos, :, :] = add_speckle_noise_to_img(X_full_pixval_class_window[i_block, :, :], noiseproperties.speckle_mean, noiseproperties.speckle_var, noiseproperties.gaussian_var)
-        j_pos += 1
+      for i_noisevec in range(len(noiseproperties_vec)):
+        # print("Speckle variance = " + str(noiseproperties_vec[i_noisevec].speckle_var) + ". Gaussian variance = " + str(noiseproperties_vec[i_noisevec].gaussian_var) + "." )
+        if int(block_class) == 0:
+          # Generate Bernoulli RV in order to choose by chance the negative images to which noise will be added:
+          addnegnoise = scipy.stats.bernoulli.rvs(noiseproperties_vec[i_noisevec].aug_negat_prob)
+          if addnegnoise:
+            X_full_pixval_class_window[i_block, :, :] = add_speckle_noise_to_img(X_full_pixval_class_window[i_block, :, :], 
+              noiseproperties_vec[i_noisevec].speckle_mean, noiseproperties_vec[i_noisevec].speckle_var, noiseproperties_vec[i_noisevec].gaussian_var)
+        
+        elif int(block_class) == 1:
+          X_noisypositives[j_pos, :, :] = add_speckle_noise_to_img(X_full_pixval_class_window[i_block, :, :], noiseproperties_vec[i_noisevec].speckle_mean,
+            noiseproperties_vec[i_noisevec].speckle_var, noiseproperties_vec[i_noisevec].gaussian_var)
+          j_pos += 1
     X_full_pixval_class_window = np.concatenate((X_full_pixval_class_window, X_noisypositives), axis = 0)
     Y_class_window = np.concatenate( (Y_class_window, Y_noisypositives), axis = 0 )
-    print("Adding multiplicative noise to all target windows. The non noisy windows will be mantained.")   
     
-  # print("Standardizing all images (0 mean, 1 variance).")
-
   # Standardizing all resulting windows.
   for i_window in range( X_full_pixval_class_window.shape[0] ):
     X_full_pixval_class_window[i_window, :, :] = standardize_pixels(X_full_pixval_class_window[i_window, :, :])
@@ -115,25 +118,25 @@ def gen_classification_gt(Images_vector, img_name, window_size, overlap, noisepr
 
 
 # Executes the gen_classification_gt function for multiple images and saves all the generated windows in a file.
-def gen_multiple_classification_gt(Images_vector, img_names, save):
+def gen_multiple_classification_gt(Images_vector, img_names, noiseprop_vec, save):
   n_images = len(img_names)
   effective_wsize = window_size - overlap
   npixels_vert = im_dims[0]
   npixels_horiz = im_dims[1]
   nblocks_vert = int( ( npixels_vert )/effective_wsize + 1)
   nblocks_horiz = int( ( npixels_horiz)/effective_wsize + 1)
-  noiseprop = noiseStruct(1, 0.03**2, 10**2, 0.7)
   num_cores = multiprocessing.cpu_count()
   
   # Parallel processing all images.
-  parallel_genclassgt = Parallel(n_jobs = num_cores, backend='multiprocessing')(delayed(gen_classification_gt)(Images_vector[i], img_names[i], window_size, overlap, noiseprop) for i in range( n_images ) )
+  parallel_genclassgt = Parallel(n_jobs = num_cores, backend='threading')(delayed(gen_classification_gt)(Images_vector[i], img_names[i], window_size, overlap, noiseprop_vec) for i in range( n_images ) )
   X_full_pixval_class_window, Y_class_window = zip(*parallel_genclassgt)
 
   # Save all windows as single variable
   if save:
     with open(datab_imgs_path + 'classification_data/' + 'xy_classification_noaug.pkl' , 'wb') as f:  # Python 3: open(..., 'wb')
-      pickle.dump([X_full_pixval_class_window, Y_class_window], f)
+      pickle.dump([X_full_pixval_class_window, Y_class_window, noiseprop_vec], f)
       print('saved')
+
   return X_full_pixval_class_window, Y_class_window
 
 
@@ -143,7 +146,10 @@ def gen_multiple_classification_gt(Images_vector, img_names, save):
 def load_multiple_classification_gt():
   # Load all windows that went through the noise data augmentation:
   with open(datab_imgs_path + 'classification_data/' + 'xy_classification.pkl' , 'rb') as f:  # Python 3: open(..., 'wb')
-    X_full_pixval_class_window, Y_class_window = pickle.load(f)
+    try:
+      X_full_pixval_class_window, Y_class_window, noiseprop_vec = pickle.load(f)
+    except:
+      X_full_pixval_class_window, Y_class_window = pickle.load(f)
     print('loaded')
   
   # Load all windows with no added noise:
