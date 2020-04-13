@@ -12,27 +12,28 @@ from sklearn.utils import class_weight
 from sklearn.cluster import DBSCAN
 from scipy.cluster.hierarchy import fclusterdata
 from numba import jit, njit
-import warnings
 from operator import itemgetter 
 from joblib import Parallel, delayed
 import multiprocessing
+from scipy import ndimage, misc
 from focalloss import *
 from basefunctions import *
 
 # Definition of a simple class containing properties about speckle and gaussian noise.
 class noiseStruct(object):
-  def __init__(self, speckle_mean, speckle_var, gaussian_var, aug_negat_prob):
-    self.speckle_mean = speckle_mean
+  def __init__(self, speckle_var, gaussian_var, aug_negat_prob, rot_angle):
+    self.gaussian_mean = 0
+    self.speckle_mean = 1
     self.speckle_var = speckle_var
     self.gaussian_var = gaussian_var
     self.aug_negat_prob = aug_negat_prob
-
+    self.rot_angle = rot_angle
 
 # This function adds speckle (multiplicative) and gaussian noise to a matrix image. Used to augment the database.
-def add_speckle_noise_to_img(Image, speckle_mean, speckle_variance, gaussian_variance):
-  gaussian_mean = 0
-  Speckle_noise = np.random.normal(loc = speckle_mean, scale = np.sqrt(speckle_variance), size = Image.shape)
-  Gaussian_noise = np.random.normal(loc = gaussian_mean, scale = np.sqrt(gaussian_variance), size = Image.shape)
+def add_speckle_noise_to_img(Image, noiseprop):
+  Speckle_noise = np.random.normal(loc = noiseprop.speckle_mean, scale = np.sqrt(noiseprop.speckle_variance), size = Image.shape)
+  Gaussian_noise = np.random.normal(loc = noiseprop.gaussian_mean, scale = np.sqrt(noiseprop.gaussian_variance), size = Image.shape)
+  Image = ndimage.rotate(Image, noiseprop.rot_angle, reshape=False, mode = 'wrap')
   Image = np.floor(Image*Speckle_noise + Gaussian_noise)
   return Image
 
@@ -99,12 +100,9 @@ def gen_classification_gt(Images_vector, img_name, window_size, overlap, noisepr
           # Generate Bernoulli RV in order to choose by chance the negative images to which noise will be added:
           addnegnoise = scipy.stats.bernoulli.rvs(noiseproperties_vec[i_noisevec].aug_negat_prob)
           if addnegnoise:
-            X_full_pixval_class_window[i_block, :, :] = add_speckle_noise_to_img(X_full_pixval_class_window[i_block, :, :], 
-              noiseproperties_vec[i_noisevec].speckle_mean, noiseproperties_vec[i_noisevec].speckle_var, noiseproperties_vec[i_noisevec].gaussian_var)
-        
+            X_full_pixval_class_window[i_block, :, :] = add_speckle_noise_to_img(X_full_pixval_class_window[i_block, :, :], noiseproperties_vec[i_noisevec])
         elif int(block_class) == 1:
-          X_noisypositives[j_pos, :, :] = add_speckle_noise_to_img(X_full_pixval_class_window[i_block, :, :], noiseproperties_vec[i_noisevec].speckle_mean,
-            noiseproperties_vec[i_noisevec].speckle_var, noiseproperties_vec[i_noisevec].gaussian_var)
+          X_noisypositives[j_pos, :, :] = add_speckle_noise_to_img(X_full_pixval_class_window[i_block, :, :], noiseproperties_vec[i_noisevec])
           j_pos += 1
     X_full_pixval_class_window = np.concatenate((X_full_pixval_class_window, X_noisypositives), axis = 0)
     Y_class_window = np.concatenate( (Y_class_window, Y_noisypositives), axis = 0 )
@@ -133,8 +131,8 @@ def gen_multiple_classification_gt(Images_vector, img_names, noiseprop_vec, save
 
   # Save all windows as single variable
   if save:
-    with open(datab_imgs_path + 'classification_data/' + 'xy_classification_noaug.pkl' , 'wb') as f:  # Python 3: open(..., 'wb')
-      pickle.dump([X_full_pixval_class_window, Y_class_window, noiseprop_vec], f)
+    with open(datab_imgs_path + 'classification_data/' + 'xy_classification.pkl' , 'wb') as f:  # Python 3: open(..., 'wb')
+      pickle.dump([X_full_pixval_class_window, Y_class_window], f)
       print('saved')
 
   return X_full_pixval_class_window, Y_class_window
@@ -156,7 +154,7 @@ def load_multiple_classification_gt():
   with open(datab_imgs_path + 'classification_data/' + 'xy_classification_noaug.pkl' , 'rb') as f:  # Python 3: open(..., 'wb')
     X_full_pixval_class_window_noaug, Y_class_window_noaug = pickle.load(f)
     print('loaded')
-  return X_full_pixval_class_window, Y_class_window, X_full_pixval_class_window_noaug, Y_class_window_noaug
+  return X_full_pixval_class_window, Y_class_window, X_full_pixval_class_window_noaug, Y_class_window_noaug, noiseprop_vec
 
 
 
