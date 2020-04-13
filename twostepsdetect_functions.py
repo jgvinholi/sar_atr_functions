@@ -31,8 +31,8 @@ class noiseStruct(object):
 
 # This function adds speckle (multiplicative) and gaussian noise to a matrix image. Used to augment the database.
 def add_speckle_noise_to_img(Image, noiseprop):
-  Speckle_noise = np.random.normal(loc = noiseprop.speckle_mean, scale = np.sqrt(noiseprop.speckle_variance), size = Image.shape)
-  Gaussian_noise = np.random.normal(loc = noiseprop.gaussian_mean, scale = np.sqrt(noiseprop.gaussian_variance), size = Image.shape)
+  Speckle_noise = np.random.normal(loc = noiseprop.speckle_mean, scale = np.sqrt(noiseprop.speckle_var), size = Image.shape)
+  Gaussian_noise = np.random.normal(loc = noiseprop.gaussian_mean, scale = np.sqrt(noiseprop.gaussian_var), size = Image.shape)
   Image = ndimage.rotate(Image, noiseprop.rot_angle, reshape=False, mode = 'wrap')
   Image = np.floor(Image*Speckle_noise + Gaussian_noise)
   return Image
