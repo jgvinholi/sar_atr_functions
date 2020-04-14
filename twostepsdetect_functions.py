@@ -144,17 +144,14 @@ def gen_multiple_classification_gt(Images_vector, img_names, noiseprop_vec, save
 def load_multiple_classification_gt():
   # Load all windows that went through the noise data augmentation:
   with open(datab_imgs_path + 'classification_data/' + 'xy_classification.pkl' , 'rb') as f:  # Python 3: open(..., 'wb')
-    try:
-      X_full_pixval_class_window, Y_class_window, noiseprop_vec = pickle.load(f)
-    except:
-      X_full_pixval_class_window, Y_class_window = pickle.load(f)
+    X_full_pixval_class_window, Y_class_window = pickle.load(f)
     print('loaded')
   
   # Load all windows with no added noise:
   with open(datab_imgs_path + 'classification_data/' + 'xy_classification_noaug.pkl' , 'rb') as f:  # Python 3: open(..., 'wb')
     X_full_pixval_class_window_noaug, Y_class_window_noaug = pickle.load(f)
     print('loaded')
-  return X_full_pixval_class_window, Y_class_window, X_full_pixval_class_window_noaug, Y_class_window_noaug, noiseprop_vec
+  return X_full_pixval_class_window, Y_class_window, X_full_pixval_class_window_noaug, Y_class_window_noaug
 
 
 
