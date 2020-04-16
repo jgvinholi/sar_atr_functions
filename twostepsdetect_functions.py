@@ -430,7 +430,7 @@ def predict_and_save(model_conv, model_classconv, img_names, detect_thresh, clas
 
 
 # This function executes the 'detection_perfomance' function for each classification model threshold, specified by 'classif_threshs' array, and plots the ROC curve (if requested).
-def roc_classif(model_conv, model_classconv, img_name, img_dataset, detect_thresh, classif_threshs, plot, predict, Pred_mask, kfold):
+def roc_classif(model_conv, model_classconv, img_name, img_dataset, detect_thresh, classif_threshs, predict, Pred_mask, kfold):
     detected_targets, undetected_targets, false_positives = np.empty((len(classif_threshs)), dtype=object), np.empty((len(classif_threshs)), dtype=object), np.empty((len(classif_threshs)), dtype=object)
     f1_score, precision, recall, fpr = np.zeros( len(classif_threshs) ), np.zeros( len(classif_threshs) ), np.zeros( len(classif_threshs) ), np.zeros( len(classif_threshs) )
     classif_threshs = np.sort(classif_threshs, axis=None)
@@ -443,19 +443,12 @@ def roc_classif(model_conv, model_classconv, img_name, img_dataset, detect_thres
     for i in range(len( classif_threshs ) ) :
       f1_score[i], precision[i], recall[i], fpr[i], detected_targets[i], undetected_targets[i], false_positives[i] = detection_perfomance(model_conv, model_classconv, Pred_mask, detect_thresh, classif_threshs[i], img_name, 0)
     
-    if plot:
-      plt.grid(True)
-      plt.xlim(np.amin(fpr)*0.85, np.amax(fpr)*1.15)
-      plt.ylim(np.amin(recall)*0.85, np.amax(recall)*1.15)
-      plt.xlabel("False Alarm Rate (1/km^2)")
-      plt.ylabel("Probability of Detection (TPR)")
-      plt.plot(fpr, recall, 'go-')
-      plt.show()
+
     best_f1 = np.amax(f1_score)
     best_classif_threshs_index = np.argmax(f1_score)
     best_classif_threshs = classif_threshs[best_classif_threshs_index] 
     print("Best classif_threshs = %.4f, with F1-score = %.4f ." % (best_classif_threshs, best_f1) ) # The f1-score is just informative.
-    return Pred_mask, f1_score, precision, recall, fpr, detected_targets, undetected_targets, false_positives, best_classif_threshs, best_classif_threshs_index
+    return Pred_mask, f1_score, precision, recall, fpr, detected_targets, undetected_targets, false_positives
 
 
 
@@ -465,30 +458,34 @@ def roc_classif(model_conv, model_classconv, img_name, img_dataset, detect_thres
 
 
 # This function executes 'roc_classif' for multiple images and calculates the ROC curve based on the information from all tested images.
-def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, classif_threshs, detect_thresh, kfold):
-  best_f1_scores, best_precisions, best_recalls, best_fprs, best_thresholds = np.zeros( len(img_names) ), np.zeros( len(img_names) ), np.zeros( len(img_names) ), np.zeros( len(img_names) ), np.zeros( len(img_names) )
-  mean_f1_scores, mean_precisions, mean_recalls, mean_fprs = np.zeros( len(classif_threshs) ), np.zeros( len(classif_threshs) ), np.zeros( len(classif_threshs) ), np.zeros( len(classif_threshs) )
-
-  # Parallelize calls to 'roc_classif' to speed up the process:
-  parallel_vars = Parallel(n_jobs=4, backend = 'threading', verbose = 10, max_nbytes = '100M')( delayed(roc_classif)(model_conv, model_classconv, img_names[i], img_dataset, detect_thresh, classif_threshs, 0, 1, 0, kfold) for i in range( len(img_names) ))
-  _, f1_score, precision, recall, fpr, _, _, _, best_threshold, best_threshold_index = zip(*parallel_vars)
-  mean_f1_scores, mean_precisions, mean_recalls, mean_fprs = np.mean(np.array(f1_score), axis = 0), np.mean(np.array(precision), axis = 0), np.mean(np.array(recall), axis = 0) ,np.mean(np.array(fpr), axis = 0)
+def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, classif_threshs, detect_threshs, kfold):
+  mean_f1_scores, mean_precisions, mean_recalls, mean_fprs, classif_threshs_corrected = np.empty( len(detect_threshs), dtype=object), np.empty( len(detect_threshs), dtype=object), np.empty( len(detect_threshs), dtype=object), np.empty( len(detect_threshs), dtype=object), np.empty( len(detect_threshs), dtype=object) 
+  num_cores = multiprocessing.cpu_count() if ( len(classif_threshs) >  multiprocessing.cpu_count()) else len(classif_threshs)
+  for j in range( len(detect_threshs) ):
+    # Parallelize calls to 'roc_classif' to speed up the process:
+    parallel_vars = Parallel(n_jobs = num_cores, backend = 'threading', verbose = 10, max_nbytes = '100M')( delayed(roc_classif)(model_conv, model_classconv, img_names[i], img_dataset, detect_threshs[j], classif_threshs, 1, 0, kfold) for i in range( len(img_names) ) )
+    _, f1_score, precision, recall, fpr, _, _, _ = zip(*parallel_vars)
+    mean_f1_scores[j], mean_precisions[j], mean_recalls[j], mean_fprs[j] = np.mean(np.array(f1_score), axis = 0), np.mean(np.array(precision), axis = 0), np.mean(np.array(recall), axis = 0), np.mean(np.array(fpr), axis = 0)
+    # Get worst fpr whose recall equals to max recall:
+    # lbti = np.argmax(mean_recalls[j])
+    # Discart thresholds that yielded a lower probability of detection with false alarm rate higher than the threshold(s) with best probability of detection. 
+    # This is done in order to discart useless thresholds from the ROC: 
+    # mean_fprs[j] = mean_fprs[j][lbti:-1]
+    # mean_recalls[j] = mean_recalls[j][lbti:-1]
+    classif_threshs_corrected[j] = classif_threshs#[lbti:-1]
+    # Print the perfomance parameters for each tested threshold:
+    print("")
+    print("Predetection Threshold = " + str(detect_threshs[j]) )
+    print( np.stack( (classif_threshs_corrected[j], mean_fprs[j], mean_recalls[j]), axis = 1 ) )
   
-  # Get worst fpr whose recall equals to max recall:
-  lbti = np.argmax(mean_recalls) 
 
-  # Discart thresholds that yielded a lower probability of detection with false alarm rate higher than the threshold(s) with best probability of detection. 
-  # This is done in order to discart useless thresholds from the ROC:
-  mean_fprs = mean_fprs[lbti:-1]
-  mean_recalls = mean_recalls[lbti:-1]
-  classif_threshs = classif_threshs[lbti:-1]
-
-  # Print the perfomance parameters for each tested threshold:
-  print( np.stack( (classif_threshs, mean_fprs, mean_recalls), axis = 1 ) )
+  
   
   # Plot the ROC:
+  point_colors = np.linspace(0, 1, len(detect_threshs) )
+
   plt.grid(True)
-  startx, endx, starty, endy = 0, 0.5, 0.91, 1.005
+  startx, endx, starty, endy = 0, 1.05, 0.91, 1.005
   plt.xlim(startx, endx)
   plt.ylim(starty, endy)
   tickstepx = 0.05
@@ -497,16 +494,19 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
   plt.yticks( np.arange(starty, endy + tickstepy, tickstepy ) )
   plt.xlabel("False Alarm Rate (1/km^2)")
   plt.ylabel("Probabilty of Detection (TPR)")
-  plt.plot(mean_fprs, mean_recalls, 'go-', markersize = 3, linewidth = 1)
-  for i, txt in enumerate(classif_threshs):
-    plt.annotate("%.4f" % txt, (mean_fprs[i], mean_recalls[i]), fontsize = 2)
-  # Mark the point from Renato's (Dal Molin) paper:
+  
+  for j in range( len(detect_threshs) ):
+    plt.plot(mean_fprs[j], mean_recalls[j], 'o', markersize = 4, linewidth = 1, color = plt.cm.RdYlBu( point_colors[j] ) )
+    for i, txt in enumerate(classif_threshs_corrected[j]):
+      plt.annotate("(%.4f, %.4f)" % (detect_threshs[j], txt ), (mean_fprs[j][i], mean_recalls[j][i]), fontsize = 3)
+    # Mark the point from Renato's (Dal Molin) paper:
+  
   plt.plot(0.28, 0.9633, 'bx', markersize = 7)
   plt.annotate("(0.28, 0.9633)", (0.28, 0.9633), fontsize = 7)
-  plt.savefig( os.path.join(datab_imgs_path, "predictions/roc.pdf") )  
+  plt.savefig( os.path.join(datab_imgs_path, "predictions/roc.pdf") ) 
   plt.show()
   
-  return best_f1_scores, best_precisions, best_recalls, best_thresholds, mean_f1_scores, mean_precisions, mean_recalls, mean_fprs
+  return mean_f1_scores, mean_precisions, mean_recalls, mean_fprs
 
 
 

@@ -20,7 +20,7 @@ from tensorflow.keras.models import Model, load_model # Need by tpu
 from focalloss import *
 
 
-rcParams['figure.figsize'] = [12, 18]
+rcParams['figure.figsize'] = [12, 12]
 cwd = os.getcwd()
 orig_imgs_folder = "Img/original/"
 datab_imgs_folder = "Img/database/"
