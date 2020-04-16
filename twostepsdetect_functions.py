@@ -15,6 +15,7 @@ from numba import jit, njit
 from operator import itemgetter 
 from joblib import Parallel, delayed
 import multiprocessing
+import dill
 from scipy import ndimage, misc
 from focalloss import *
 from basefunctions import *
@@ -90,7 +91,7 @@ def gen_classification_gt(Images_vector, img_name, window_size, overlap, noisepr
     X_targets, Y_targets = insert_pixels_around_annotations(X_targets, Y_targets)
     X_targets, Y_targets = np.reshape(X_targets, (X_targets.shape[0], X_targets.shape[1] ) ), np.reshape(Y_targets, (Y_targets.shape[0], Y_targets.shape[1] ) )
     for wind_v, j in enumerate( range(0, npixels_vert, effective_wsize) ):
-      if (j % 30*npixels_vert == 0): print("Processing window " + str(wind_v*nblocks_horiz) )
+      if (wind_v % 3 == 0): print("Processing window " + str(wind_v*nblocks_horiz) )
       for wind_h, k in enumerate( range(0, npixels_horiz, effective_wsize) ):
         if ( (k - overlap >= 0) and (j - overlap >= 0) and (k + effective_wsize <= im_dims[1]) and (j + effective_wsize <= im_dims[0]) ):
           vert_range = np.arange((j-overlap), (j+effective_wsize))
@@ -160,7 +161,7 @@ def gen_multiple_classification_gt(Images_vector, img_names, noiseprop_vec, save
   num_cores = multiprocessing.cpu_count()
   
   # Parallel processing all images.
-  parallel_genclassgt = Parallel(n_jobs = num_cores, backend='threading')(delayed(gen_classification_gt)(Images_vector[i], img_names[i], window_size, overlap, noiseprop_vec) for i in range( n_images ) )
+  parallel_genclassgt = Parallel(n_jobs = num_cores, backend='multiprocessing')(delayed(gen_classification_gt)(Images_vector[i], img_names[i], window_size, overlap, noiseprop_vec) for i in range( n_images ) )
   X_full_pixval_class_window, Y_class_window = zip(*parallel_genclassgt)
 
   # Save all windows as single variable
