@@ -42,6 +42,7 @@ def add_speckle_noise_to_img(Image, noiseprop):
 # This function cuts the specified image vector into multiple square windows to be used in training and validation. 
 # Data augmentation with noise also takes place below.
 def gen_classification_gt(Images_vector, img_name, window_size, overlap, noiseproperties_vec):
+  onlycenter = 0
   print(img_name)
   effective_wsize = window_size - overlap
   npixels_vert = im_dims[0]
@@ -58,30 +59,63 @@ def gen_classification_gt(Images_vector, img_name, window_size, overlap, noisepr
   X_targets = tmp_mat[:, 0:2]
   Y_targets = tmp_mat[:, 2:4]
   X_targets = X_targets[ Y_targets[:, 0] == 1 , :]
+  Y_targets = Y_targets[ Y_targets[:, 0] == 1 , :]
 
   print("Windows to process: " + str(nblocks_vert*nblocks_horiz) )
-  
-  # Cutting windows with size = 'window_size' and overlap = 'overlap'. A padding of zeros is added to the border windows as needed.
-  for wind_v, j in enumerate( range(0, npixels_vert, effective_wsize) ):
-    if (j % 30*npixels_vert == 0): print("Processing window " + str(wind_v*nblocks_horiz) )
-    for wind_h, k in enumerate( range(0, npixels_horiz, effective_wsize) ):
-      if ( (k - overlap >= 0) and (j - overlap >= 0) and (k + effective_wsize <= im_dims[1]) and (j + effective_wsize <= im_dims[0]) ):
-        vert_range = np.arange((j-overlap), (j+effective_wsize))
-        horiz_range = np.arange((k-overlap), (k+effective_wsize))
-        window_points = np.transpose([np.tile(vert_range, len(horiz_range)), np.repeat(horiz_range, len(vert_range))])
-        X_full_pixval_class_window[wind_h + wind_v*nblocks_horiz, :, :] = np.reshape( Images_vector[window_points[:, 0], window_points[:, 1]], (window_size, window_size), order='F'  )
-        target = np.any( [np.any( ( X_targets == window_points[i, :]).all( axis = 1 ) ) for i in range(window_points.shape[0] ) ] )
-        Y_class_window[wind_h + wind_v*nblocks_horiz] = target
-      else:
-        for wpos_v, l in enumerate( range(-overlap, effective_wsize) ):
-          for wpos_h, m in enumerate( range(-overlap, effective_wsize) ):
-            if ( (k+m >= 0) and (j+l >= 0) and (k+m < im_dims[1]) and (j+l < im_dims[0]) ):
-              X_full_pixval_class_window[wind_h + wind_v*nblocks_horiz, wpos_v, wpos_h] = Images_vector[ j + l, k + m]
-              if np.any( ( X_targets == np.array([j + l, k + m]) ).all( axis = 1 ) ): 
-                Y_class_window[wind_h + wind_v*nblocks_horiz] = 1
-            else:
-              X_full_pixval_class_window[wind_h + wind_v*nblocks_horiz, wpos_v, wpos_h] = 0
 
+  if onlycenter:
+    # Cutting windows with size = 'window_size' and overlap = 'overlap'. A padding of zeros is added to the border windows as needed.
+    for wind_v, j in enumerate( range(0, npixels_vert, effective_wsize) ):
+      if (j % 30*npixels_vert == 0): print("Processing window " + str(wind_v*nblocks_horiz) )
+      for wind_h, k in enumerate( range(0, npixels_horiz, effective_wsize) ):
+        if ( (k - overlap >= 0) and (j - overlap >= 0) and (k + effective_wsize <= im_dims[1]) and (j + effective_wsize <= im_dims[0]) ):
+          vert_range = np.arange((j-overlap), (j+effective_wsize))
+          horiz_range = np.arange((k-overlap), (k+effective_wsize))
+          window_points = np.transpose([np.tile(vert_range, len(horiz_range)), np.repeat(horiz_range, len(vert_range))])
+          X_full_pixval_class_window[wind_h + wind_v*nblocks_horiz, :, :] = np.reshape( Images_vector[window_points[:, 0], window_points[:, 1]], (window_size, window_size), order='F'  )
+          target = np.any( [np.any( ( X_targets == window_points[i, :]).all( axis = 1 ) ) for i in range(window_points.shape[0] ) ] )
+          Y_class_window[wind_h + wind_v*nblocks_horiz] = target
+        else:
+          for wpos_v, l in enumerate( range(-overlap, effective_wsize) ):
+            for wpos_h, m in enumerate( range(-overlap, effective_wsize) ):
+              if ( (k+m >= 0) and (j+l >= 0) and (k+m < im_dims[1]) and (j+l < im_dims[0]) ):
+                X_full_pixval_class_window[wind_h + wind_v*nblocks_horiz, wpos_v, wpos_h] = Images_vector[ j + l, k + m]
+                if np.any( ( X_targets == np.array([j + l, k + m]) ).all( axis = 1 ) ): 
+                  Y_class_window[wind_h + wind_v*nblocks_horiz] = 1
+              else:
+                X_full_pixval_class_window[wind_h + wind_v*nblocks_horiz, wpos_v, wpos_h] = 0
+  else:
+    numpixfortarget = np.array( [3**2, 5**2] ) 
+    X_targets, Y_targets = np.reshape(X_targets, ( X_targets.shape[0], X_targets.shape[1], 1 ) ), np.reshape(Y_targets, ( Y_targets.shape[0], Y_targets.shape[1], 1 ) )
+    X_targets, Y_targets = insert_pixels_around_annotations(X_targets, Y_targets)
+    X_targets, Y_targets = np.reshape(X_targets, (X_targets.shape[0], X_targets.shape[1] ) ), np.reshape(Y_targets, (Y_targets.shape[0], Y_targets.shape[1] ) )
+    for wind_v, j in enumerate( range(0, npixels_vert, effective_wsize) ):
+      if (j % 30*npixels_vert == 0): print("Processing window " + str(wind_v*nblocks_horiz) )
+      for wind_h, k in enumerate( range(0, npixels_horiz, effective_wsize) ):
+        if ( (k - overlap >= 0) and (j - overlap >= 0) and (k + effective_wsize <= im_dims[1]) and (j + effective_wsize <= im_dims[0]) ):
+          vert_range = np.arange((j-overlap), (j+effective_wsize))
+          horiz_range = np.arange((k-overlap), (k+effective_wsize))
+          window_points = np.transpose([np.tile(vert_range, len(horiz_range)), np.repeat(horiz_range, len(vert_range))])
+          X_full_pixval_class_window[wind_h + wind_v*nblocks_horiz, :, :] = np.reshape( Images_vector[window_points[:, 0], window_points[:, 1]], (window_size, window_size), order='F'  )
+          sumtargetpoints = np.sum( [np.any( ( X_targets == window_points[i, :]).all( axis = 1 ) ) for i in range(window_points.shape[0] ) ] )
+          target = 1 if ( sumtargetpoints == numpixfortarget[0] or sumtargetpoints == numpixfortarget[1]) else 0
+          Y_class_window[wind_h + wind_v*nblocks_horiz] = target
+        else:
+          sumtargetpoints = 0
+          for wpos_v, l in enumerate( range(-overlap, effective_wsize) ):
+            for wpos_h, m in enumerate( range(-overlap, effective_wsize) ):
+              if ( (k+m >= 0) and (j+l >= 0) and (k+m < im_dims[1]) and (j+l < im_dims[0]) ):
+                X_full_pixval_class_window[wind_h + wind_v*nblocks_horiz, wpos_v, wpos_h] = Images_vector[ j + l, k + m]
+                targetpoint = np.any( ( X_targets == np.array([j + l, k + m]) ).all( axis = 1 ) ) 
+                if targetpoint:
+                  sumtargetpoints += 1
+              else:
+                X_full_pixval_class_window[wind_h + wind_v*nblocks_horiz, wpos_v, wpos_h] = 0
+          if ( sumtargetpoints == numpixfortarget[0] or sumtargetpoints == numpixfortarget[1]):
+            print(sumtargetpoints)
+            Y_class_window[wind_h + wind_v*nblocks_horiz] = 1
+          else:
+            Y_class_window[wind_h + wind_v*nblocks_horiz] = 0
 
   addnoise = 1
   if addnoise:

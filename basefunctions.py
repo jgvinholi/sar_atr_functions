@@ -27,9 +27,8 @@ datab_imgs_folder = "Img/database/"
 orig_imgs_path = os.path.join(cwd, orig_imgs_folder)
 datab_imgs_path = os.path.join(cwd, datab_imgs_folder)
 im_dims = (3000, 2000)
-overlap = 10  # Minimum target size.
-window_size = 24 + overlap # 20x20 px window. 12 is the minimum distance between two targets and 5 is the minimum target size.
-
+overlap = 12  # Maximum target size.
+window_size = 17 + overlap # 29x29 -> 18/sqrt(2) approx 13, 13*2 = 26 + 3 (min target size)
 
 # set of test images:
 test_set = ['M2P1_M3P1', 'M3P2_M5P2',  'M4P3_M3P3', 'M5P4_M2P4']
@@ -108,7 +107,7 @@ def standardize_pixels(Image): # Standardize (0 mean, 1 variance) image(s).
 
 # This function adds points around the ground truth centers (X = center of targets or nontargets, Y = class of target/nontarget -> 0 nontarget, 1 small target, 2 medium sized target, 3 big targets) 
 # X.shape and Y.shape = (n_annotations, 2, n_images), assuming every image has the same number of annotated pixels for each kind
-def insert_pixels_around_annotations(X, Y):  
+def insert_pixels_around_annotations(X, Y):
   n_noisepoints = np.sum(Y[:, 1, 0] == 0)
   n_type1points = np.sum(Y[:, 1, 0] == 1)
   n_type2points = np.sum(Y[:, 1, 0] == 2)
