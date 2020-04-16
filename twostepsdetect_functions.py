@@ -459,25 +459,29 @@ def roc_classif(model_conv, model_classconv, img_name, img_dataset, detect_thres
 
 # This function executes 'roc_classif' for multiple images and calculates the ROC curve based on the information from all tested images.
 def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, classif_threshs, detect_threshs, kfold):
-  mean_f1_scores, mean_precisions, mean_recalls, mean_fprs, classif_threshs_corrected = np.empty( len(detect_threshs), dtype=object), np.empty( len(detect_threshs), dtype=object), np.empty( len(detect_threshs), dtype=object), np.empty( len(detect_threshs), dtype=object), np.empty( len(detect_threshs), dtype=object) 
+  classif_threshs, detect_threshs = np.array(classif_threshs), np.array(detect_threshs)
+  mean_f1_scores, mean_precisions, mean_recalls, mean_fprs = np.empty( len(detect_threshs), dtype=object), np.empty( len(detect_threshs), dtype=object), np.empty( len(detect_threshs), dtype=object), np.empty( len(detect_threshs), dtype=object)
   num_cores = multiprocessing.cpu_count() if ( len(classif_threshs) >  multiprocessing.cpu_count()) else len(classif_threshs)
+  performance_matrix = np.zeros( ( len(detect_threshs)*len(classif_threshs), 4 ) )
   for j in range( len(detect_threshs) ):
     # Parallelize calls to 'roc_classif' to speed up the process:
     parallel_vars = Parallel(n_jobs = num_cores, backend = 'threading', verbose = 10, max_nbytes = '100M')( delayed(roc_classif)(model_conv, model_classconv, img_names[i], img_dataset, detect_threshs[j], classif_threshs, 1, 0, kfold) for i in range( len(img_names) ) )
     _, f1_score, precision, recall, fpr, _, _, _ = zip(*parallel_vars)
     mean_f1_scores[j], mean_precisions[j], mean_recalls[j], mean_fprs[j] = np.mean(np.array(f1_score), axis = 0), np.mean(np.array(precision), axis = 0), np.mean(np.array(recall), axis = 0), np.mean(np.array(fpr), axis = 0)
-    # Get worst fpr whose recall equals to max recall:
-    # lbti = np.argmax(mean_recalls[j])
-    # Discart thresholds that yielded a lower probability of detection with false alarm rate higher than the threshold(s) with best probability of detection. 
-    # This is done in order to discart useless thresholds from the ROC: 
-    # mean_fprs[j] = mean_fprs[j][lbti:-1]
-    # mean_recalls[j] = mean_recalls[j][lbti:-1]
-    classif_threshs_corrected[j] = classif_threshs#[lbti:-1]
+
+    # Matrix with columns (detect threshold, classif threshold, FPR, recall)
+    print(   (detect_threshs[j]*np.ones( len(classif_threshs) ) ).shape, classif_threshs.shape, mean_fprs[j].shape, mean_recalls[j].shape    )
+    print(np.stack( (detect_threshs[j]*np.ones( len(classif_threshs) ), classif_threshs, mean_fprs[j], mean_recalls[j] ), axis = 1))
+    performance_matrix[(j*len(classif_threshs)):(j*len(classif_threshs) + len(classif_threshs)), :] = np.stack( (detect_threshs[j]*np.ones( len(classif_threshs) ), classif_threshs, mean_fprs[j], mean_recalls[j] ), axis = 1)
     # Print the perfomance parameters for each tested threshold:
     print("")
     print("Predetection Threshold = " + str(detect_threshs[j]) )
-    print( np.stack( (classif_threshs_corrected[j], mean_fprs[j], mean_recalls[j]), axis = 1 ) )
+    print( np.stack( (classif_threshs, mean_fprs[j], mean_recalls[j]), axis = 1 ) )
   
+  print("Perfomance Matrix:")
+  print("(detect threshold, classif threshold, FPR, recall)")
+  print(performance_matrix)
+
 
   
   
@@ -494,11 +498,12 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
   plt.yticks( np.arange(starty, endy + tickstepy, tickstepy ) )
   plt.xlabel("False Alarm Rate (1/km^2)")
   plt.ylabel("Probabilty of Detection (TPR)")
-  
+  annotate_y = 5
   for j in range( len(detect_threshs) ):
     plt.plot(mean_fprs[j], mean_recalls[j], 'o', markersize = 4, linewidth = 1, color = plt.cm.RdYlBu( point_colors[j] ) )
-    for i, txt in enumerate(classif_threshs_corrected[j]):
-      plt.annotate("(%.4f, %.4f)" % (detect_threshs[j], txt ), (mean_fprs[j][i], mean_recalls[j][i]), fontsize = 3)
+    for i, txt in enumerate(classif_threshs):
+      annotate_y = -annotate_y
+      plt.annotate("(%.4f, %.4f)" % (detect_threshs[j], txt ), (mean_fprs[j][i], mean_recalls[j][i]), fontsize = 4, xytext = (1, annotate_y), textcoords="offset points")
     # Mark the point from Renato's (Dal Molin) paper:
   
   plt.plot(0.28, 0.9633, 'bx', markersize = 7)
