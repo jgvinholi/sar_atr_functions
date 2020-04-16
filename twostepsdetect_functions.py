@@ -468,21 +468,32 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
     parallel_vars = Parallel(n_jobs = num_cores, backend = 'threading', verbose = 10, max_nbytes = '100M')( delayed(roc_classif)(model_conv, model_classconv, img_names[i], img_dataset, detect_threshs[j], classif_threshs, 1, 0, kfold) for i in range( len(img_names) ) )
     _, f1_score, precision, recall, fpr, _, _, _ = zip(*parallel_vars)
     mean_f1_scores[j], mean_precisions[j], mean_recalls[j], mean_fprs[j] = np.mean(np.array(f1_score), axis = 0), np.mean(np.array(precision), axis = 0), np.mean(np.array(recall), axis = 0), np.mean(np.array(fpr), axis = 0)
-
     # Matrix with columns (detect threshold, classif threshold, FPR, recall)
-    print(   (detect_threshs[j]*np.ones( len(classif_threshs) ) ).shape, classif_threshs.shape, mean_fprs[j].shape, mean_recalls[j].shape    )
-    print(np.stack( (detect_threshs[j]*np.ones( len(classif_threshs) ), classif_threshs, mean_fprs[j], mean_recalls[j] ), axis = 1))
     performance_matrix[(j*len(classif_threshs)):(j*len(classif_threshs) + len(classif_threshs)), :] = np.stack( (detect_threshs[j]*np.ones( len(classif_threshs) ), classif_threshs, mean_fprs[j], mean_recalls[j] ), axis = 1)
     # Print the perfomance parameters for each tested threshold:
     print("")
     print("Predetection Threshold = " + str(detect_threshs[j]) )
     print( np.stack( (classif_threshs, mean_fprs[j], mean_recalls[j]), axis = 1 ) )
   
+
   print("Perfomance Matrix:")
   print("(detect threshold, classif threshold, FPR, recall)")
   print(performance_matrix)
 
-
+  roc_matrix = np.zeros((0, 4))
+  
+  for i_perf in range( performance_matrix.shape[0] ):
+    badpointflag = 0
+    for j_compar in range( performance_matrix.shape[0] ):
+      if ( performance_matrix[j_compar, 2] < performance_matrix[i_perf, 2] ) and ( performance_matrix[j_compar, 3] > performance_matrix[i_perf, 3] ):
+        badpointflag = 1
+        break
+    if not badpointflag:
+      roc_matrix = np.vstack( ( roc_matrix, performance_matrix[i_perf, :] ) )
+  
+  print("ROC Matrix:")
+  print("(detect threshold, classif threshold, FPR, recall)")
+  print(roc_matrix)
   
   
   # Plot the ROC:
@@ -499,13 +510,21 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
   plt.xlabel("False Alarm Rate (1/km^2)")
   plt.ylabel("Probabilty of Detection (TPR)")
   annotate_y = 5
-  for j in range( len(detect_threshs) ):
-    plt.plot(mean_fprs[j], mean_recalls[j], 'o', markersize = 4, linewidth = 1, color = plt.cm.RdYlBu( point_colors[j] ) )
-    for i, txt in enumerate(classif_threshs):
-      annotate_y = -annotate_y
-      plt.annotate("(%.4f, %.4f)" % (detect_threshs[j], txt ), (mean_fprs[j][i], mean_recalls[j][i]), fontsize = 4, xytext = (1, annotate_y), textcoords="offset points")
-    # Mark the point from Renato's (Dal Molin) paper:
+  # for j in range( len(detect_threshs) ):
+  #   plt.plot(mean_fprs[j], mean_recalls[j], 'o', markersize = 4, linewidth = 1, color = plt.cm.RdYlBu( point_colors[j] ) )
+  #   annotate_y = -annotate_y
+  #   for i, txt in enumerate(classif_threshs):
+  #     annotate_y = -annotate_y
+  #     plt.annotate("(%.4f, %.4f)" % (detect_threshs[j], txt ), (mean_fprs[j][i], mean_recalls[j][i]), fontsize = 4, xytext = (1, annotate_y), textcoords="offset points")
+  #   
   
+  for j in range( len(roc_matrix) ):
+    print( point_colors[ detect_threshs == roc_matrix[j, 0] ] )
+    plt.plot(roc_matrix[j, 2], roc_matrix[j, 3], 'o', markersize = 4, linewidth = 2, color = plt.cm.RdYlBu( float( point_colors[ detect_threshs == roc_matrix[j, 0] ] ) ) )
+    plt.annotate("(%.4f, %.4f)" % (roc_matrix[j, 0], roc_matrix[j, 1] ), (roc_matrix[j, 2], roc_matrix[j, 3]), fontsize = 4, xytext = (1, annotate_y), textcoords="offset points")
+    annotate_y = - annotate_y
+  
+  # Mark the point from Renato's (Dal Molin) paper:
   plt.plot(0.28, 0.9633, 'bx', markersize = 7)
   plt.annotate("(0.28, 0.9633)", (0.28, 0.9633), fontsize = 7)
   plt.savefig( os.path.join(datab_imgs_path, "predictions/roc.pdf") ) 
