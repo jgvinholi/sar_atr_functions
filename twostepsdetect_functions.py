@@ -48,7 +48,8 @@ def gen_classification_gt(Images_vector, img_name, window_size, overlap, noisepr
   effective_wsize = window_size - overlap
   npixels_vert = im_dims[0]
   npixels_horiz = im_dims[1]
-  nblocks_vert = int( ( npixels_vert )/effective_wsize + 1)
+  
+  nblocks_vert = int( ( npixels_vert )/effective_wsize + 1) 
   nblocks_horiz = int( ( npixels_horiz)/effective_wsize + 1)
   X_full_pixval_class_window = np.zeros( (nblocks_vert*nblocks_horiz, window_size, window_size) )
   Y_class_window = np.zeros( (nblocks_vert*nblocks_horiz, 1) )
