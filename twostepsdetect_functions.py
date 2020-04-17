@@ -118,7 +118,7 @@ def gen_classification_gt(Images_vector, img_name, window_size, overlap, noisepr
           else:
             Y_class_window[wind_h + wind_v*nblocks_horiz] = 0
 
-  addnoise = 1
+  addnoise = 0
   if addnoise:
     print("Adding multiplicative and additive noise radomly to nontarget windows. Augmenting database with noisy target windows.")
 
