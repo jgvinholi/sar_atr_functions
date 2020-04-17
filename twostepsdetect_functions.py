@@ -386,10 +386,9 @@ def detection_perfomance(model_conv, model_classconv, Pred, detect_thresh, class
     Pred = predict_image(model_conv, img_name, 1, img_names) # Generates the predetection heatmap if none is provided.
 
   Pred_mask = Pred > detect_thresh # Apply detection threshold to generate the binary map.
-
+  # print(np.sum(Pred_mask))
   # Retreive clusters from predetection heatmap:
   _, cluster_centers = find_clusters_andsave(model_classconv, Pred, detect_thresh, classif_thresh, img_name, img_names, save)
-  
   # Get ground truth position of target pixels:
   tmp_mat = np.loadtxt(datab_imgs_path + "labels/" + img_name + ".txt", delimiter = ' ', usecols = range(4))
   tmp_mat = tmp_mat.astype(int)
@@ -407,10 +406,12 @@ def detection_perfomance(model_conv, model_classconv, Pred, detect_thresh, class
         correct_clusters_indices = np.vstack([correct_clusters_indices, j])
         detected_targets = np.vstack([detected_targets, X_targets[i, :] ] )
         break
-              
+
+  # print(detected_targets.shape)      
   detected_targets = np.delete(detected_targets, 0, 0) # Delete first useless line.
   correct_clusters_indices = np.delete(correct_clusters_indices, 0, 0) # Delete first useless line.
   
+
   for i in range(X_targets.shape[0]): # Find undetected targets:
     if ~np.any( np.logical_and(detected_targets[:, 0] == X_targets[i, 0], detected_targets[:, 1] == X_targets[i, 1]) ):
       undetected_targets = np.vstack([undetected_targets, X_targets[i, :]])
@@ -556,7 +557,7 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
   
   for j in range( len(roc_matrix) ):
     print( point_colors[ detect_threshs == roc_matrix[j, 0] ] )
-    plt.plot(roc_matrix[j, 2], roc_matrix[j, 3], 'o-', markersize = 4, markeredgecolor = 'k', linewidth = 2, color = 'k', makerfacecolor = plt.cm.RdYlBu( float( point_colors[ detect_threshs == roc_matrix[j, 0] ] ) ) )
+    plt.plot(roc_matrix[j, 2], roc_matrix[j, 3], 'o-', markersize = 4, markeredgecolor = 'k', linewidth = 2, color = plt.cm.RdYlBu( float( point_colors[ detect_threshs == roc_matrix[j, 0] ] ) ) )
     plt.annotate("(%.4f, %.4f)" % (roc_matrix[j, 0], roc_matrix[j, 1] ), (roc_matrix[j, 2], roc_matrix[j, 3]), fontsize = 4, xytext = (1, annotate_y), textcoords="offset points")
     annotate_y = - annotate_y
   
