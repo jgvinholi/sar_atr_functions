@@ -28,7 +28,7 @@ orig_imgs_path = os.path.join(cwd, orig_imgs_folder)
 datab_imgs_path = os.path.join(cwd, datab_imgs_folder)
 im_dims = (3000, 2000)
 overlap = 10  # Maximum target size.
-window_size = 22 + overlap # 29x29 -> 18/sqrt(2) approx 13, 13*2 = 26 + 3 (min target size)
+window_size = 24 + overlap # 29x29 -> 18/sqrt(2) approx 13, 13*2 = 26 + 3 (min target size)
 
 # set of test images:
 test_set = ['M2P1_M3P1', 'M3P2_M5P2',  'M4P3_M3P3', 'M5P4_M2P4']

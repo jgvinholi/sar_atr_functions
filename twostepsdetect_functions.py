@@ -556,7 +556,7 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
   
   for j in range( len(roc_matrix) ):
     print( point_colors[ detect_threshs == roc_matrix[j, 0] ] )
-    plt.plot(roc_matrix[j, 2], roc_matrix[j, 3], 'o', markersize = 4, linewidth = 2, color = plt.cm.RdYlBu( float( point_colors[ detect_threshs == roc_matrix[j, 0] ] ) ) )
+    plt.plot(roc_matrix[j, 2], roc_matrix[j, 3], 'o-', markersize = 4, markeredgecolor = 'k', linewidth = 2, color = 'k', makerfacecolor = plt.cm.RdYlBu( float( point_colors[ detect_threshs == roc_matrix[j, 0] ] ) ) )
     plt.annotate("(%.4f, %.4f)" % (roc_matrix[j, 0], roc_matrix[j, 1] ), (roc_matrix[j, 2], roc_matrix[j, 3]), fontsize = 4, xytext = (1, annotate_y), textcoords="offset points")
     annotate_y = - annotate_y
   
