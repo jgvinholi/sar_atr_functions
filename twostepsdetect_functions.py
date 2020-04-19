@@ -277,7 +277,7 @@ def gen_multiple_classification_gt(Images_vector, img_names, noiseprop_vec, save
   num_cores = multiprocessing.cpu_count()
   
   # Parallel processing all images.
-  parallel_genclassgt = Parallel(n_jobs = num_cores, backend='multiprocessing')(delayed(gen_classification_gt)(Images_vector[i], img_names[i], window_size, overlap, noiseprop_vec) for i in range( n_images ) )
+  parallel_genclassgt = Parallel(n_jobs = num_cores, backend='multiprocessing')(delayed(gen_classification_gt_v2)(Images_vector[i], img_names[i], window_size, overlap, noiseprop_vec) for i in range( n_images ) )
   X_full_pixval_class_window, Y_class_window = zip(*parallel_genclassgt)
 
   # Save all windows as single variable
