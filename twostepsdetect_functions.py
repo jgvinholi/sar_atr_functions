@@ -151,6 +151,121 @@ def gen_classification_gt(Images_vector, img_name, window_size, overlap, noisepr
 
 
 
+def gen_classification_gt_v2(Images_vector, img_name, window_size, overlap, noiseproperties_vec):
+  print(img_name)
+  effective_wsize = window_size - overlap
+  npixels_vert = im_dims[0]
+  npixels_horiz = im_dims[1]
+  
+  nblocks_vert = int( ( npixels_vert )/effective_wsize + 1) 
+  nblocks_horiz = int( ( npixels_horiz)/effective_wsize + 1)
+  X_full_pixval_class_window = np.zeros( (nblocks_vert*nblocks_horiz, window_size, window_size) )
+  Y_class_window = np.zeros( (nblocks_vert*nblocks_horiz, 1) )
+
+
+  # Retrieves the ground truth of the specified image.
+  tmp_mat = np.loadtxt(datab_imgs_path + "labels/" + img_name + ".txt", delimiter = ' ', usecols = range(4))
+  tmp_mat = tmp_mat.astype(int)
+  X_targets = tmp_mat[:, 0:2]
+  Y_targets = tmp_mat[:, 2:4]
+  X_targets = X_targets[ Y_targets[:, 0] == 1 , :]
+  Y_targets = Y_targets[ Y_targets[:, 0] == 1 , :]
+  nextwindow = 0
+  
+  print("Windows to process: " + str(nblocks_vert*nblocks_horiz) )
+
+    # Cutting windows with size = 'window_size' and overlap = 'overlap'. A padding of zeros is added to the border windows as needed.
+    # Collect negative examples and ignore positive windows.
+  for wind_v, j in enumerate( range(0, npixels_vert, effective_wsize) ):
+    if (j % 30*npixels_vert == 0): print("Processing window " + str(wind_v*nblocks_horiz) )
+    for wind_h, k in enumerate( range(0, npixels_horiz, effective_wsize) ):
+      if ( (k - overlap >= 0) and (j - overlap >= 0) and (k + effective_wsize <= im_dims[1]) and (j + effective_wsize <= im_dims[0]) ):
+        vert_range = np.arange((j-overlap), (j+effective_wsize))
+        horiz_range = np.arange((k-overlap), (k+effective_wsize))
+        window_points = np.transpose([np.tile(vert_range, len(horiz_range)), np.repeat(horiz_range, len(vert_range))])
+        target = np.any( [np.any( ( X_targets == window_points[i, :]).all( axis = 1 ) ) for i in range(window_points.shape[0] ) ] )
+        if not target:
+          X_full_pixval_class_window[wind_h + wind_v*nblocks_horiz, :, :] = np.reshape( Images_vector[window_points[:, 0], window_points[:, 1]], (window_size, window_size), order='F'  )
+          # Y_class_window[wind_h + wind_v*nblocks_horiz] = 0
+        else:
+          X_full_pixval_class_window[wind_h + wind_v*nblocks_horiz, :, :] = X_full_pixval_class_window[wind_h - 1 + wind_v*nblocks_horiz, :, :]
+          # Y_class_window[wind_h + wind_v*nblocks_horiz] = 1
+      else:
+        for wpos_v, l in enumerate( range(-overlap, effective_wsize) ):
+          for wpos_h, m in enumerate( range(-overlap, effective_wsize) ):
+            if ( (k+m >= 0) and (j+l >= 0) and (k+m < im_dims[1]) and (j+l < im_dims[0]) ):
+              X_full_pixval_class_window[wind_h + wind_v*nblocks_horiz, wpos_v, wpos_h] = Images_vector[ j + l, k + m]
+              if np.any( ( X_targets == np.array([j + l, k + m]) ).all( axis = 1 ) ): 
+                X_full_pixval_class_window[wind_h + wind_v*nblocks_horiz, :, :] = X_full_pixval_class_window[wind_h - 1 + wind_v*nblocks_horiz, :, :]
+                # Y_class_window[wind_h + wind_v*nblocks_horiz] = 1
+                nextwindow = 1
+                break
+            else:
+              X_full_pixval_class_window[wind_h + wind_v*nblocks_horiz, wpos_v, wpos_h] = 0
+          if nextwindow: 
+            nextwindow = 0
+            break        
+
+  halfwindow = int( window_size/2 )
+  for i in range( X_targets.shape[0] ):
+    unparity = 0 if halfwindow == window_size/2 else 1
+    cluster_center = np.array([ X_targets[i, 0], X_targets[i, 1] ])
+    # Determine the limit coordinates of the window to be analized.
+    lowbound_horiz = -halfwindow + cluster_center[1]
+    highbound_horiz = halfwindow + cluster_center[1]
+    
+    lowbound_vert = -halfwindow + cluster_center[0]
+    highbound_vert = halfwindow + cluster_center[0]
+
+    Pred_window = np.zeros( ( 1, window_size, window_size ) )
+    Pred_class = np.ones( (1, 1) )
+    # If the coordinates are not out of bound, a vectorized window extraction takes place. 
+    if (lowbound_horiz >= 0) and (lowbound_vert >= 0) and (highbound_horiz < im_dims[1]) and (highbound_vert < im_dims[0]):
+      Pred_window[0, :, :] = Images_vector[lowbound_vert:highbound_vert, lowbound_horiz:highbound_horiz]
+    else:
+      # The windows that, at some point, exceed the image's bounds are padded with zeros:
+      for i, i_vert in enumerate( range(-halfwindow, halfwindow + unparity) ):
+        for j, j_horiz in enumerate( range(-halfwindow, halfwindow + unparity) ):
+          if ( (i_vert + cluster_center[0]) >= 0 ) and ( (i_vert + cluster_center[0]) < im_dims[0] ) and ( (j_horiz + cluster_center[1]) >= 0) and ( (j_horiz + cluster_center[1]) < im_dims[1]) :
+            Pred_window[0, i, j] = Images_vector[ i_vert + cluster_center[0], j_horiz + cluster_center[1] ]
+          else:
+            Pred_window[0, i, j] = 0
+
+    X_full_pixval_class_window = np.concatenate( [X_full_pixval_class_window, Pred_window], axis = 0 )
+    Y_class_window = np.concatenate([Y_class_window, Pred_class] , axis = 0)
+  addnoise = 0
+  if addnoise:
+    print("Adding multiplicative and additive noise radomly to nontarget windows. Augmenting database with noisy target windows.")
+
+    # Adding noise to the negative windows with a rate of 'noiseproperties_vec[i_noisevec].aug_negat_prob'. Noisy positive windows are added to the dataset,
+    # mantaining all non-noisy positive windows.
+    npositives = np.sum(Y_class_window[:, 0] == 1)*len(noiseproperties_vec)
+    X_noisypositives = np.zeros( ( npositives, X_full_pixval_class_window.shape[1], X_full_pixval_class_window.shape[2] ) )
+    Y_noisypositives = np.ones( (npositives, 1) )
+    j_pos = 0
+    for i_block, block_class in enumerate(Y_class_window[:, 0]):
+      for i_noisevec in range(len(noiseproperties_vec)):
+        # print("Speckle variance = " + str(noiseproperties_vec[i_noisevec].speckle_var) + ". Gaussian variance = " + str(noiseproperties_vec[i_noisevec].gaussian_var) + "." )
+        if int(block_class) == 0:
+          # Generate Bernoulli RV in order to choose by chance the negative images to which noise will be added:
+          addnegnoise = scipy.stats.bernoulli.rvs(noiseproperties_vec[i_noisevec].aug_negat_prob)
+          if addnegnoise:
+            X_full_pixval_class_window[i_block, :, :] = add_speckle_noise_to_img(X_full_pixval_class_window[i_block, :, :], noiseproperties_vec[i_noisevec])
+        elif int(block_class) == 1:
+          X_noisypositives[j_pos, :, :] = add_speckle_noise_to_img(X_full_pixval_class_window[i_block, :, :], noiseproperties_vec[i_noisevec])
+          j_pos += 1
+    X_full_pixval_class_window = np.concatenate((X_full_pixval_class_window, X_noisypositives), axis = 0)
+    Y_class_window = np.concatenate( (Y_class_window, Y_noisypositives), axis = 0 )
+    
+  # Standardizing all resulting windows.
+  for i_window in range( X_full_pixval_class_window.shape[0] ):
+    X_full_pixval_class_window[i_window, :, :] = standardize_pixels(X_full_pixval_class_window[i_window, :, :])
+  
+  return X_full_pixval_class_window, Y_class_window
+
+
+
+
 # Executes the gen_classification_gt function for multiple images and saves all the generated windows in a file.
 def gen_multiple_classification_gt(Images_vector, img_names, noiseprop_vec, save):
   n_images = len(img_names)
