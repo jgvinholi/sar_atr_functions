@@ -233,7 +233,8 @@ def gen_classification_gt_v2(Images_vector, img_name, window_size, overlap, nois
 
     X_full_pixval_class_window = np.concatenate( [X_full_pixval_class_window, Pred_window], axis = 0 )
     Y_class_window = np.concatenate([Y_class_window, Pred_class] , axis = 0)
-  addnoise = 0
+  
+  addnoise = 1
   if addnoise:
     print("Adding multiplicative and additive noise radomly to nontarget windows. Augmenting database with noisy target windows.")
 
@@ -627,7 +628,7 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
     print("Predetection Threshold = " + str(detect_threshs[j]) )
     print( np.stack( (classif_threshs, mean_fprs[j], mean_recalls[j]), axis = 1 ) )
   
-
+  performance_matrix = np.sort( performance_matrix, axis = -1 )
   print("Perfomance Matrix:")
   print("(detect threshold, classif threshold, FPR, recall)")
   print(performance_matrix)
@@ -637,12 +638,14 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
   for i_perf in range( performance_matrix.shape[0] ):
     badpointflag = 0
     for j_compar in range( performance_matrix.shape[0] ):
-      if ( performance_matrix[j_compar, 2] < performance_matrix[i_perf, 2] ) and ( performance_matrix[j_compar, 3] > performance_matrix[i_perf, 3] ):
+      if ( performance_matrix[j_compar, 2] <= performance_matrix[i_perf, 2] ) and ( performance_matrix[j_compar, 3] >= performance_matrix[i_perf, 3] ):
         badpointflag = 1
         break
     if not badpointflag:
       roc_matrix = np.vstack( ( roc_matrix, performance_matrix[i_perf, :] ) )
   
+  roc_matrix = np.sort( roc_matrix, axis = -1 )
+
   print("ROC Matrix:")
   print("(detect threshold, classif threshold, FPR, recall)")
   print(roc_matrix)
@@ -673,7 +676,7 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
   for j in range( len(roc_matrix) ):
     print( point_colors[ detect_threshs == roc_matrix[j, 0] ] )
     plt.plot(roc_matrix[j, 2], roc_matrix[j, 3], 'o-', markersize = 4, markeredgecolor = 'k', linewidth = 2, color = plt.cm.RdYlBu( float( point_colors[ detect_threshs == roc_matrix[j, 0] ] ) ) )
-    plt.annotate("(%.4f, %.4f)" % (roc_matrix[j, 0], roc_matrix[j, 1] ), (roc_matrix[j, 2], roc_matrix[j, 3]), fontsize = 4, xytext = (1, annotate_y), textcoords="offset points")
+    plt.annotate("(%.3f, %.3f)" % (roc_matrix[j, 0], roc_matrix[j, 1] ), (roc_matrix[j, 2], roc_matrix[j, 3]), fontsize = 4, xytext = (1, annotate_y), textcoords="offset points")
     annotate_y = - annotate_y
   
   # Mark the point from Renato's (Dal Molin) paper:
