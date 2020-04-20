@@ -628,7 +628,7 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
     print("Predetection Threshold = " + str(detect_threshs[j]) )
     print( np.stack( (classif_threshs, mean_fprs[j], mean_recalls[j]), axis = 1 ) )
   
-  performance_matrix = np.sort( performance_matrix, axis = -1 )
+  # performance_matrix = np.sort( performance_matrix, axis = -1 )
   print("Perfomance Matrix:")
   print("(detect threshold, classif threshold, FPR, recall)")
   print(performance_matrix)
@@ -638,13 +638,13 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
   for i_perf in range( performance_matrix.shape[0] ):
     badpointflag = 0
     for j_compar in range( performance_matrix.shape[0] ):
-      if ( performance_matrix[j_compar, 2] <= performance_matrix[i_perf, 2] ) and ( performance_matrix[j_compar, 3] >= performance_matrix[i_perf, 3] ):
+      if ( performance_matrix[j_compar, 2] < performance_matrix[i_perf, 2] ) and ( performance_matrix[j_compar, 3] >= performance_matrix[i_perf, 3] ):
         badpointflag = 1
         break
     if not badpointflag:
       roc_matrix = np.vstack( ( roc_matrix, performance_matrix[i_perf, :] ) )
   
-  roc_matrix = np.sort( roc_matrix, axis = -1 )
+  # roc_matrix = np.sort( roc_matrix, axis = -1 )
 
   print("ROC Matrix:")
   print("(detect threshold, classif threshold, FPR, recall)")
