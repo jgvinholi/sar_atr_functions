@@ -612,22 +612,25 @@ def roc_classif(model_conv, model_classconv, img_name, img_dataset, detect_thres
 
 # This function executes 'roc_classif' for multiple images and calculates the ROC curve based on the information from all tested images.
 def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, classif_threshs, detect_threshs, kfold):
+
   classif_threshs, detect_threshs = np.array(classif_threshs), np.array(detect_threshs)
   mean_f1_scores, mean_precisions, mean_recalls, mean_fprs = np.empty( len(detect_threshs), dtype=object), np.empty( len(detect_threshs), dtype=object), np.empty( len(detect_threshs), dtype=object), np.empty( len(detect_threshs), dtype=object)
   num_cores = multiprocessing.cpu_count() if ( len(classif_threshs) >  multiprocessing.cpu_count()) else len(classif_threshs)
   performance_matrix = np.zeros( ( len(detect_threshs)*len(classif_threshs), 4 ) )
   for j in range( len(detect_threshs) ):
     # Parallelize calls to 'roc_classif' to speed up the process:
-    parallel_vars = Parallel(n_jobs = num_cores, backend = 'threading', verbose = 10, max_nbytes = '100M')( delayed(roc_classif)(model_conv, model_classconv, img_names[i], img_dataset, detect_threshs[j], classif_threshs, 1, 0, kfold) for i in range( len(img_names) ) )
+    parallel_vars = Parallel(n_jobs = 1, backend = 'sequential', verbose = 10)( delayed(roc_classif)(model_conv, model_classconv, img_names[i], img_dataset, detect_threshs[j], classif_threshs, 1, 0, kfold) for i in range( len(img_names) ) )
     _, f1_score, precision, recall, fpr, _, _, _ = zip(*parallel_vars)
-    mean_f1_scores[j], mean_precisions[j], mean_recalls[j], mean_fprs[j] = np.mean(np.array(f1_score), axis = 0), np.mean(np.array(precision), axis = 0), np.mean(np.array(recall), axis = 0), np.mean(np.array(fpr), axis = 0)
+    mean_precisions[j], mean_recalls[j], mean_fprs[j] = np.mean(np.array(precision), axis = 0), np.mean(np.array(recall), axis = 0), np.mean(np.array(fpr), axis = 0)
+    mean_f1_scores[j] =  2*(mean_precisions[j]*mean_recalls[j])/( mean_precisions[j] + mean_recalls[j] ) 
     # Matrix with columns (detect threshold, classif threshold, FPR, recall)
     performance_matrix[(j*len(classif_threshs)):(j*len(classif_threshs) + len(classif_threshs)), :] = np.stack( (detect_threshs[j]*np.ones( len(classif_threshs) ), classif_threshs, mean_fprs[j], mean_recalls[j] ), axis = 1)
     # Print the perfomance parameters for each tested threshold:
     print("")
     print("Predetection Threshold = " + str(detect_threshs[j]) )
     print( np.stack( (classif_threshs, mean_fprs[j], mean_recalls[j]), axis = 1 ) )
-  
+    print("Max F1-Score = " + str( np.amax(mean_f1_scores[j]) ) + " for classif threshold = " + str( classif_threshs[ np.argmax(mean_f1_scores[j]) ] ) )
+
   # performance_matrix = np.sort( performance_matrix, axis = -1 )
   print("Perfomance Matrix:")
   print("(detect threshold, classif threshold, FPR, recall)")
@@ -665,13 +668,7 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
   plt.xlabel("False Alarm Rate (1/km^2)")
   plt.ylabel("Probabilty of Detection (TPR)")
   annotate_y = 5
-  # for j in range( len(detect_threshs) ):
-  #   plt.plot(mean_fprs[j], mean_recalls[j], 'o', markersize = 4, linewidth = 1, color = plt.cm.RdYlBu( point_colors[j] ) )
-  #   annotate_y = -annotate_y
-  #   for i, txt in enumerate(classif_threshs):
-  #     annotate_y = -annotate_y
-  #     plt.annotate("(%.4f, %.4f)" % (detect_threshs[j], txt ), (mean_fprs[j][i], mean_recalls[j][i]), fontsize = 4, xytext = (1, annotate_y), textcoords="offset points")
-  #   
+
   
   for j in range( len(roc_matrix) ):
     print( point_colors[ detect_threshs == roc_matrix[j, 0] ] )
