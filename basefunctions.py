@@ -171,7 +171,7 @@ def get_images(whole_set):
   Images_vector_norm = standardize_pixels(Images_vector)
   Images_vector_norm = np.reshape(Images_vector_norm, (Images_vector_norm.shape[0], Images_vector_norm.shape[1], Images_vector_norm.shape[2], 1) )
 
-  Y_full = get_image_gt(img_names)
+  Y_full = get_image_gt(whole_set)
   Y_full = np.reshape(Y_full, (Y_full.shape[0], Y_full.shape[1], Y_full.shape[2], 1) )
 
   return Images_vector, Images_vector_norm, Y_full

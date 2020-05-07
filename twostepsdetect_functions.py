@@ -234,7 +234,7 @@ def gen_classification_gt_v2(Images_vector, img_name, window_size, overlap, nois
     X_full_pixval_class_window = np.concatenate( [X_full_pixval_class_window, Pred_window], axis = 0 )
     Y_class_window = np.concatenate([Y_class_window, Pred_class] , axis = 0)
   
-  addnoise = 1
+  addnoise = 0
   if addnoise:
     print("Adding multiplicative and additive noise radomly to nontarget windows. Augmenting database with noisy target windows.")
 
