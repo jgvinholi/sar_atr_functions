@@ -661,10 +661,10 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
   
   rcParams['figure.figsize'] = [12, 12]
   plt.grid(True)
-  startx, endx, starty, endy = 0, 1.375, 0.91, 1.005
+  startx, endx, starty, endy = 0, 1.45, 0.86, 1.005
   plt.xlim(startx, endx)
   plt.ylim(starty, endy)
-  tickstepx = 0.05
+  tickstepx = 0.1
   tickstepy = 0.01
   plt.xticks( np.arange(startx, endx + tickstepx/2, tickstepx ), fontsize = 10 )
   plt.yticks( np.arange(starty, endy + tickstepy/2, tickstepy ), fontsize = 12 )
@@ -692,18 +692,17 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
   
   vuwave_perf = np.array([ [0.0508862, 0.8704] , [0.07513, 0.9007], [0.10078595, 0.9242], [0.11948132, 0.9371], 
   [0.15779746, 0.95], [0.20459735, 0.9626] , [0.33288943, 0.9714], [0.60145065, 0.983], [1.4118872, 0.986] ])
-  plt.plot(vuwave_perf[:, 0], vuwave_perf[:, 1], color = 'brown', marker = '+', linewidth = 2, linestyle = ':' )
+  plt.plot(vuwave_perf[:, 0], vuwave_perf[:, 1], color = 'brown', marker = '+', linewidth = 2, linestyle = ':', label = "Vu's 2017 \n Performance" )
 
   gpalm_perf = np.array( [ [0.11343, 0.94337], [0.2, 0.97726], [1.1839, 0.9865] ] )
   plt.plot(gpalm_perf[:, 0], gpalm_perf[:, 1], color = 'seagreen', marker = '+', linewidth = 2, linestyle = '--', label = "G. Palm's 2020 \n Performance")
-  plt.annotate(, (0.11343, 0.94337), xytext = (2, annotate_y), fontsize = 8, textcoords="offset points")
 
   # plt.plot(0.2, 0.97726, 'mx', markersize = 10)
   # plt.annotate("G. Palm's 2020 \n Performance 2", (0.2, 0.97726), xytext = (2, annotate_y), fontsize = 8, textcoords="offset points")
   # 
   # plt.plot(1.1839, 0.9865, 'mx', markersize = 10)
   # plt.annotate("G. Palm's 2020 \n Performance 3", (1.1839, 0.9865), xytext = (2, annotate_y), fontsize = 8, textcoords="offset points")
-
+  plt.legend()
   plt.savefig( os.path.join(datab_imgs_path, "predictions/roc.pdf") ) 
   plt.show()
   
