@@ -316,7 +316,7 @@ def predict_image(model_conv, img_name, kfold, whole_set):
   if kfold:
     n_split = len(whole_set)//4
     n_images = len(whole_set)
-    kfold_img_index = int( (whole_set.index(img_name) // (n_images // n_split) ) % 5) 
+    kfold_img_index = int( (whole_set.index(img_name) // (n_images // n_split) )) 
     print(img_name, kfold_img_index)
     # Pass the image through the predetection model:
     Target_map = np.reshape( model_conv[kfold_img_index].predict(Image_vec_norm, verbose = 1), (3000, 2000) )
@@ -500,12 +500,12 @@ def detection_perfomance(model_conv, model_classconv, Pred, detect_thresh, class
   Img_GT_mask = np.zeros((3000, 2000))
 
   if (Pred == 0).all():
-    Pred = predict_image(model_conv, img_name, 1, img_names) # Generates the predetection heatmap if none is provided.
+    Pred = predict_image(model_conv, img_name, 1, whole_set) # Generates the predetection heatmap if none is provided.
 
   Pred_mask = Pred > detect_thresh # Apply detection threshold to generate the binary map.
   # print(np.sum(Pred_mask))
   # Retreive clusters from predetection heatmap:
-  _, cluster_centers = find_clusters_andsave(model_classconv, Pred, detect_thresh, classif_thresh, img_name, img_names, save)
+  _, cluster_centers = find_clusters_andsave(model_classconv, Pred, detect_thresh, classif_thresh, img_name, whole_set, save)
   # Get ground truth position of target pixels:
   tmp_mat = np.loadtxt(datab_imgs_path + "labels/" + img_name + ".txt", delimiter = ' ', usecols = range(4))
   tmp_mat = tmp_mat.astype(int)
@@ -658,33 +658,49 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
   # Plot the ROC:
   point_colors = np.linspace(0, 1, len(detect_threshs) )
 
+  
+  rcParams['figure.figsize'] = [12, 12]
   plt.grid(True)
-  startx, endx, starty, endy = 0, 1.05, 0.91, 1.005
+  startx, endx, starty, endy = 0, 1.025, 0.91, 1.205
   plt.xlim(startx, endx)
   plt.ylim(starty, endy)
   tickstepx = 0.05
   tickstepy = 0.01
-  plt.xticks( np.arange(startx, endx + tickstepx, tickstepx ), fontsize = 8 )
-  plt.yticks( np.arange(starty, endy + tickstepy, tickstepy ) )
-  plt.xlabel("False Alarm Rate (1/km^2)")
-  plt.ylabel("Probabilty of Detection (TPR)")
-  annotate_y = 5
-
+  plt.xticks( np.arange(startx, endx + tickstepx/2, tickstepx ), fontsize = 10 )
+  plt.yticks( np.arange(starty, endy + tickstepy/2, tickstepy ), fontsize = 12 )
+  plt.xlabel("False Alarm Rate [$1/\mathrm{km}^2$]", fontsize = 15)
+  plt.ylabel("Probabilty of Detection  $P_d$", fontsize = 15)
+  annotate_y = 7
   
   for j in range( len(roc_matrix) ):
     print( point_colors[ detect_threshs == roc_matrix[j, 0] ] )
-    plt.plot(roc_matrix[j, 2], roc_matrix[j, 3], 'o-', markersize = 4, markeredgecolor = 'k', linewidth = 2, color = plt.cm.RdYlBu( float( point_colors[ detect_threshs == roc_matrix[j, 0] ] ) ) )
-    plt.annotate("(%.3f, %.3f)" % (roc_matrix[j, 0], roc_matrix[j, 1] ), (roc_matrix[j, 2], roc_matrix[j, 3]), fontsize = 4, xytext = (1, annotate_y), textcoords="offset points")
+    plt.plot(roc_matrix[j, 2], roc_matrix[j, 3], 'o-', markersize = 8, markeredgecolor = 'k', linewidth = 2, color = plt.cm.RdYlBu( float( point_colors[ detect_threshs == roc_matrix[j, 0] ] ) ) )
+    plt.annotate("(%.3f, %.3f)" % (roc_matrix[j, 0], roc_matrix[j, 1] ), (roc_matrix[j, 2], roc_matrix[j, 3]), fontsize = 7, xytext = (2, annotate_y), textcoords="offset points")
     annotate_y = - annotate_y
   
   # Mark the point from Renato's (Dal Molin) paper:
-  plt.plot(0.28, 0.9633, 'bx', markersize = 7)
-  plt.annotate("(0.28, 0.9633)", (0.28, 0.9633), fontsize = 7)
+  plt.plot(0.28, 0.9633, 'bx', markersize = 10)
+  plt.annotate("Dal Molin Jr's 2019 \n Performance", (0.28, 0.9633), xytext = (2, annotate_y), fontsize = 8)
+  
+  plt.plot(0.67, 0.97, 'kx', markersize = 10)
+  plt.annotate("Lundberg's 2006 \n Performance", (0.67, 0.97), xytext = (2, annotate_y), fontsize = 8)
+  
+  plt.plot(0.25, 1, 'gx', markersize = 10)
+  plt.annotate("Vu's 2017 \n Performance", (0.25, 1), xytext = (2, annotate_y), fontsize = 8)
+  
+  plt.plot(0.11343, 0.94337, 'mx', markersize = 10)
+  plt.annotate("G. Palm's 2020 \n Performance 1", (0.11343, 0.94337), xytext = (2, annotate_y), fontsize = 8)
+
+  plt.plot(0.2, 0.97726, 'mx', markersize = 10)
+  plt.annotate("G. Palm's 2020 \n Performance 2", (0.2, 0.97726), xytext = (2, annotate_y), fontsize = 8)
+  
+  plt.plot(1.1839, 0.9865, 'mx', markersize = 10)
+  plt.annotate("G. Palm's 2020 \n Performance 3", (1.1839, 0.9865), xytext = (2, annotate_y), fontsize = 8)
+
   plt.savefig( os.path.join(datab_imgs_path, "predictions/roc.pdf") ) 
   plt.show()
   
   return mean_f1_scores, mean_precisions, mean_recalls, mean_fprs
-
 
 
 
