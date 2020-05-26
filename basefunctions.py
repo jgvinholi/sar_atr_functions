@@ -204,12 +204,15 @@ def load_modelconv(foldername, kfold):
   floss = binary_focal_loss()
 
   if kfold:
-    modelnames = ['model_conv_0.h5', 'model_conv_1.h5', 'model_conv_2.h5', 'model_conv_3.h5', 'model_conv_4.h5']
+    modelnames = ['model_conv_0.h5', 'model_conv_1.h5', 'model_conv_2.h5', 'model_conv_3.h5', 'model_conv_4.h5', 'model_conv_5.h5']
     n_split = len(modelnames)
     model_conv = np.empty(n_split, dtype=object)
     for i, modname in enumerate(modelnames):
       print(modname)
-      model_conv[i] = load_model(modeldir + modname, custom_objects={'binary_focal_loss_fixed': floss })
+      try:
+        model_conv[i] = load_model(modeldir + modname, custom_objects={'binary_focal_loss_fixed': floss })
+      except:
+        pass
   else:
     model_conv = load_model(modeldir + "model_conv.h5")
   

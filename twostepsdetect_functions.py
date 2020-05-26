@@ -661,7 +661,7 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
   
   rcParams['figure.figsize'] = [12, 12]
   plt.grid(True)
-  startx, endx, starty, endy = 0, 1.025, 0.91, 1.205
+  startx, endx, starty, endy = 0, 1.375, 0.91, 1.005
   plt.xlim(startx, endx)
   plt.ylim(starty, endy)
   tickstepx = 0.05
@@ -680,22 +680,22 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
   
   # Mark the point from Renato's (Dal Molin) paper:
   plt.plot(0.28, 0.9633, 'bx', markersize = 10)
-  plt.annotate("Dal Molin Jr's 2019 \n Performance", (0.28, 0.9633), xytext = (2, annotate_y), fontsize = 8)
+  plt.annotate("Dal Molin Jr's 2019 \n Performance", (0.28, 0.9633), xytext = (2, annotate_y), fontsize = 8, textcoords="offset points")
   
   plt.plot(0.67, 0.97, 'kx', markersize = 10)
-  plt.annotate("Lundberg's 2006 \n Performance", (0.67, 0.97), xytext = (2, annotate_y), fontsize = 8)
+  plt.annotate("Lundberg's 2006 \n Performance", (0.67, 0.97), xytext = (2, annotate_y), fontsize = 8, textcoords="offset points")
   
   plt.plot(0.25, 1, 'gx', markersize = 10)
-  plt.annotate("Vu's 2017 \n Performance", (0.25, 1), xytext = (2, annotate_y), fontsize = 8)
+  plt.annotate("Vu's 2017 \n Performance", (0.25, 1), xytext = (2, annotate_y), fontsize = 8, textcoords="offset points")
   
   plt.plot(0.11343, 0.94337, 'mx', markersize = 10)
-  plt.annotate("G. Palm's 2020 \n Performance 1", (0.11343, 0.94337), xytext = (2, annotate_y), fontsize = 8)
+  plt.annotate("G. Palm's 2020 \n Performance 1", (0.11343, 0.94337), xytext = (2, annotate_y), fontsize = 8, textcoords="offset points")
 
   plt.plot(0.2, 0.97726, 'mx', markersize = 10)
-  plt.annotate("G. Palm's 2020 \n Performance 2", (0.2, 0.97726), xytext = (2, annotate_y), fontsize = 8)
+  plt.annotate("G. Palm's 2020 \n Performance 2", (0.2, 0.97726), xytext = (2, annotate_y), fontsize = 8, textcoords="offset points")
   
   plt.plot(1.1839, 0.9865, 'mx', markersize = 10)
-  plt.annotate("G. Palm's 2020 \n Performance 3", (1.1839, 0.9865), xytext = (2, annotate_y), fontsize = 8)
+  plt.annotate("G. Palm's 2020 \n Performance 3", (1.1839, 0.9865), xytext = (2, annotate_y), fontsize = 8, textcoords="offset points")
 
   plt.savefig( os.path.join(datab_imgs_path, "predictions/roc.pdf") ) 
   plt.show()
