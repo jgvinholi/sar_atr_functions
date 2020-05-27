@@ -678,7 +678,7 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
   #   plt.annotate("(%.3f, %.3f)" % (roc_matrix[j, 0], roc_matrix[j, 1] ), (roc_matrix[j, 2], roc_matrix[j, 3]), fontsize = 7, xytext = (2, annotate_y), textcoords="offset points")
   #   annotate_y = - annotate_y
   
-  plt.plot(roc_matrix[:, 2], roc_matrix[:, 3], linewidth = 2, marker = 'o', markersize = 6, color = 'royalblue')
+  plt.plot(roc_matrix[:, 2], roc_matrix[:, 3], linewidth = 2, marker = 'o', markersize = 6, color = 'royalblue', label = 'Proposed Architecture')
 
   # Mark the point from Renato's (Dal Molin) paper:
   plt.plot(0.28, 0.9633, 'bx', markersize = 8)
