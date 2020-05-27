@@ -16,6 +16,7 @@ from operator import itemgetter
 from joblib import Parallel, delayed
 import multiprocessing
 import dill
+import tikzplotlib
 from scipy import ndimage, misc
 from focalloss import *
 from basefunctions import *
@@ -607,10 +608,6 @@ def roc_classif(model_conv, model_classconv, img_name, img_dataset, detect_thres
 
 
 
-
-
-
-
 # This function executes 'roc_classif' for multiple images and calculates the ROC curve based on the information from all tested images.
 def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, classif_threshs, detect_threshs, kfold):
 
@@ -669,8 +666,8 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
   plt.xticks( np.arange(startx, endx + tickstepx/2, tickstepx ), fontsize = 10 )
   plt.yticks( np.arange(starty, endy + tickstepy/2, tickstepy ), fontsize = 12 )
   plt.xlabel("False Alarm Rate [$1/\mathrm{km}^2$]", fontsize = 15)
-  plt.ylabel("Probabilty of Detection  $P_d$", fontsize = 15)
-  annotate_y = 7
+  plt.ylabel("Probabilty of Detection", fontsize = 15)
+  annotate_y = 4
   
   # for j in range( len(roc_matrix) ):
   ##   print( point_colors[ detect_threshs == roc_matrix[j, 0] ] )
@@ -678,14 +675,14 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
   #   plt.annotate("(%.3f, %.3f)" % (roc_matrix[j, 0], roc_matrix[j, 1] ), (roc_matrix[j, 2], roc_matrix[j, 3]), fontsize = 7, xytext = (2, annotate_y), textcoords="offset points")
   #   annotate_y = - annotate_y
   
-  plt.plot(roc_matrix[:, 2], roc_matrix[:, 3], linewidth = 2, marker = 'o', markersize = 6, color = 'royalblue', label = 'Proposed Architecture')
+  plt.plot(roc_matrix[:, 2], roc_matrix[:, 3], linewidth = 2, marker = 'o', markersize = 3, color = 'royalblue', label = 'Proposed Architecture')
 
   # Mark the point from Renato's (Dal Molin) paper:
-  plt.plot(0.28, 0.9633, 'bx', markersize = 8)
-  plt.annotate("Dal Molin Jr's 2019 \n Performance", (0.28, 0.9633), xytext = (2, annotate_y), fontsize = 8, textcoords="offset points")
+  plt.plot(0.28, 0.9633, 'bx', markersize = 5)
+  plt.annotate("Dal Molin Jr's 2019 \n Performance", (0.28, 0.9633), xytext = (2, -annotate_y), fontsize = 8, textcoords="offset points")
   
-  plt.plot(0.67, 0.97, 'kx', markersize = 8)
-  plt.annotate("Lundberg's 2006 \n Performance", (0.67, 0.97), xytext = (2, annotate_y), fontsize = 8, textcoords="offset points")
+  plt.plot(0.67, 0.97, 'kx', markersize = 5)
+  plt.annotate("Lundberg's 2006 \n Performance", (0.67, 0.97), xytext = (2, -annotate_y), fontsize = 8, textcoords="offset points")
   
   vuwave_perf = np.array([ [0.0508862, 0.8704] ,
                             [0.07513, 0.9007], 
@@ -697,7 +694,7 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
                             [0.60145065, 0.983], 
                             [1.4118872, 0.986] ])
   plt.plot(vuwave_perf[:, 0], vuwave_perf[:, 1], color = 'brown', marker = '*',
-  markersize = 8, linewidth = 2, linestyle = ':', label = "Vu's 2017 \n Performance" )
+  markersize = 3, linewidth = 2, linestyle = ':', label = "Vu's 2017 \n Performance" )
 
   gpalm_perf = np.array([[0.11337048, 0.9413    ],
                         [0.14122123, 0.9597    ],
@@ -710,10 +707,12 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
                         [1.06831666, 0.9844    ],
                         [1.51077573, 0.9863    ]])
   plt.plot(gpalm_perf[:, 0], gpalm_perf[:, 1], color = 'seagreen', marker = '+',
-  markersize = 8, linewidth = 2, linestyle = '--', label = "G. Palm's 2020 \n Performance")
+  markersize = 3, linewidth = 2, linestyle = '--', label = "G. Palm's 2020 \n Performance")
 
-  plt.legend()
+  plt.legend(loc = 'lower right')
   plt.savefig( os.path.join(datab_imgs_path, "predictions/roc.pdf") ) 
+  # tikzplotlib.clean_figure()
+  tikzplotlib.save(os.path.join(datab_imgs_path, "predictions/roc.tex"))
   plt.show()
   
   return mean_f1_scores, mean_precisions, mean_recalls, mean_fprs
