@@ -661,7 +661,7 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
   
   rcParams['figure.figsize'] = [12, 12]
   plt.grid(True)
-  startx, endx, starty, endy = 0, 1.45, 0.86, 1.005
+  startx, endx, starty, endy = 0, 1.52, 0.86, 1.005
   plt.xlim(startx, endx)
   plt.ylim(starty, endy)
   tickstepx = 0.1
@@ -678,30 +678,40 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
   #   plt.annotate("(%.3f, %.3f)" % (roc_matrix[j, 0], roc_matrix[j, 1] ), (roc_matrix[j, 2], roc_matrix[j, 3]), fontsize = 7, xytext = (2, annotate_y), textcoords="offset points")
   #   annotate_y = - annotate_y
   
-  plt.plot(roc_matrix[:, 2], roc_matrix[:, 3], linewidth = 2, marker = 'o', color = 'royalblue')
+  plt.plot(roc_matrix[:, 2], roc_matrix[:, 3], linewidth = 2, marker = 'o', markersize = 6, color = 'royalblue')
 
   # Mark the point from Renato's (Dal Molin) paper:
-  plt.plot(0.28, 0.9633, 'bx', markersize = 10)
+  plt.plot(0.28, 0.9633, 'bx', markersize = 8)
   plt.annotate("Dal Molin Jr's 2019 \n Performance", (0.28, 0.9633), xytext = (2, annotate_y), fontsize = 8, textcoords="offset points")
   
-  plt.plot(0.67, 0.97, 'kx', markersize = 10)
+  plt.plot(0.67, 0.97, 'kx', markersize = 8)
   plt.annotate("Lundberg's 2006 \n Performance", (0.67, 0.97), xytext = (2, annotate_y), fontsize = 8, textcoords="offset points")
   
-  # plt.plot(0.25, 1, 'gx', markersize = 10)
-  # plt.annotate("Vu's 2017 \n Performance", (0.25, 1), xytext = (2, annotate_y), fontsize = 8, textcoords="offset points")
-  
-  vuwave_perf = np.array([ [0.0508862, 0.8704] , [0.07513, 0.9007], [0.10078595, 0.9242], [0.11948132, 0.9371], 
-  [0.15779746, 0.95], [0.20459735, 0.9626] , [0.33288943, 0.9714], [0.60145065, 0.983], [1.4118872, 0.986] ])
-  plt.plot(vuwave_perf[:, 0], vuwave_perf[:, 1], color = 'brown', marker = '+', linewidth = 2, linestyle = ':', label = "Vu's 2017 \n Performance" )
+  vuwave_perf = np.array([ [0.0508862, 0.8704] ,
+                            [0.07513, 0.9007], 
+                            [0.10078595, 0.9242],
+                            [0.11948132, 0.9371], 
+                            [0.15779746, 0.95],
+                            [0.20459735, 0.9626],
+                            [0.33288943, 0.9714], 
+                            [0.60145065, 0.983], 
+                            [1.4118872, 0.986] ])
+  plt.plot(vuwave_perf[:, 0], vuwave_perf[:, 1], color = 'brown', marker = '*',
+  markersize = 8, linewidth = 2, linestyle = ':', label = "Vu's 2017 \n Performance" )
 
-  gpalm_perf = np.array( [ [0.11343, 0.94337], [0.2, 0.97726], [1.1839, 0.9865] ] )
-  plt.plot(gpalm_perf[:, 0], gpalm_perf[:, 1], color = 'seagreen', marker = '+', linewidth = 2, linestyle = '--', label = "G. Palm's 2020 \n Performance")
+  gpalm_perf = np.array([[0.11337048, 0.9413    ],
+                        [0.14122123, 0.9597    ],
+                        [0.16741717, 0.9696    ],
+                        [0.19842665, 0.9774    ],
+                        [0.26613378, 0.9794    ],
+                        [0.42442406, 0.9813    ],
+                        [0.60242086, 0.9822    ],
+                        [0.84898497, 0.9841    ],
+                        [1.06831666, 0.9844    ],
+                        [1.51077573, 0.9863    ]])
+  plt.plot(gpalm_perf[:, 0], gpalm_perf[:, 1], color = 'seagreen', marker = '+',
+  markersize = 8, linewidth = 2, linestyle = '--', label = "G. Palm's 2020 \n Performance")
 
-  # plt.plot(0.2, 0.97726, 'mx', markersize = 10)
-  # plt.annotate("G. Palm's 2020 \n Performance 2", (0.2, 0.97726), xytext = (2, annotate_y), fontsize = 8, textcoords="offset points")
-  # 
-  # plt.plot(1.1839, 0.9865, 'mx', markersize = 10)
-  # plt.annotate("G. Palm's 2020 \n Performance 3", (1.1839, 0.9865), xytext = (2, annotate_y), fontsize = 8, textcoords="offset points")
   plt.legend()
   plt.savefig( os.path.join(datab_imgs_path, "predictions/roc.pdf") ) 
   plt.show()
