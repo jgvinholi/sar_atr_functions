@@ -381,6 +381,7 @@ def predict_class(model_classconv, img_name, trainval_dataset, cluster_center):
 # DBSCAN is the technique of choice.
 def find_clusters_andsave(model_classconv, Pred, detect_thresh, classif_thresh, img_name, trainval_dataset, save):
   clustering = "dbscan"
+  predetect_only = 1
   n_split = len(trainval_dataset)//4
   n_images = len(trainval_dataset)
   try:
@@ -411,7 +412,7 @@ def find_clusters_andsave(model_classconv, Pred, detect_thresh, classif_thresh, 
         class_members = candidates_coordinates[class_member_mask, :]
         possible_clusters[j, :] = np.average( class_members, axis = 0, weights = np.power(candidates_predval[class_member_mask], 2 ) ).astype('int32') # For each cluster, calculates the average position of all cluster members, weighted by the heatmap value of each member. 
         possible_clusters_probs[j] = np.reshape( predict_class(model_classconv, img_name, trainval_dataset, possible_clusters[j, :]), 1)
-        if possible_clusters_probs[j] > classif_thresh:
+        if possible_clusters_probs[j] > classif_thresh or predetect_only:
           clusters_centers.append( possible_clusters[j, :]  ) # If the classificator returns a value bigger than 'classif_thresh', the cluster will be assumed to be a target.
         j += 1
 
