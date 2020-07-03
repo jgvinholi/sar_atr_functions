@@ -381,7 +381,7 @@ def predict_class(model_classconv, img_name, trainval_dataset, cluster_center):
 # DBSCAN is the technique of choice.
 def find_clusters_andsave(model_classconv, Pred, detect_thresh, classif_thresh, img_name, trainval_dataset, save):
   clustering = "dbscan"
-  predetect_only = 1
+  predetect_only = 0
   n_split = len(trainval_dataset)//4
   n_images = len(trainval_dataset)
   try:
