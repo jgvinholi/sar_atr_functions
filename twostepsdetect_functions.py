@@ -416,12 +416,14 @@ def find_clusters_andsave(model_classconv, Pred, detect_thresh, classif_thresh, 
           clusters_centers.append( possible_clusters[j, :]  ) # If the classificator returns a value bigger than 'classif_thresh', the cluster will be assumed to be a target.
         j += 1
 
-      Final_mask = np.zeros( Pred.shape , dtype = np.uint8)
+      # Final_mask = np.zeros( Pred.shape , dtype = np.uint8)
       if save:
+        Final_mask = np.repeat( bwimg(os.path.join(datab_imgs_path, img_name + ".jpg")).astype(np.uint8), repeats = 3, axis = 2 )
         for i, cluster in enumerate( clusters_centers ):
-          Final_mask = cv2.circle(Final_mask, (cluster[1], cluster[0]), radius = 7, color = 255, thickness = 2)
+          Final_mask = cv2.circle(Final_mask, (cluster[1], cluster[0]), radius = 7, color = (50, 255, 0), thickness = 2)
       
-        showimg(Final_mask)
+        # showimg(Final_mask)
+        plt.imshow(Final_mask)
         saveimg(Final_mask, os.path.join(datab_imgs_path, "predictions/" + img_name + "_dbscan_twosteps_prediction.jpg") )
         np.savetxt(os.path.join(datab_imgs_path, "predictions/" + img_name + "_cluster_centers_prediction.txt"), clusters_centers, "%d" )
 
