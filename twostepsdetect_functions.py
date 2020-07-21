@@ -421,7 +421,7 @@ def find_clusters_andsave(model_classconv, Pred, detect_thresh, classif_thresh, 
         for i, cluster in enumerate( clusters_centers ):
           Final_mask = cv2.circle(Final_mask, (cluster[1], cluster[0]), radius = 7, color = 255, thickness = 2)
       
-        # showimg(Final_mask)
+        showimg(Final_mask)
         saveimg(Final_mask, os.path.join(datab_imgs_path, "predictions/" + img_name + "_dbscan_twosteps_prediction.jpg") )
         np.savetxt(os.path.join(datab_imgs_path, "predictions/" + img_name + "_cluster_centers_prediction.txt"), clusters_centers, "%d" )
 
@@ -501,7 +501,7 @@ def detection_perfomance(model_conv, model_classconv, Pred, detect_thresh, class
   correct_clusters_indices = np.zeros((1, 1))
   Img_GT_mask = np.zeros((3000, 2000))
 
-  if (Pred == 0).all():
+  if (isinstance(Pred, int) or isinstance(Pred, float)):
     Pred = predict_image(model_conv, img_name, 1, whole_set) # Generates the predetection heatmap if none is provided.
 
   Pred_mask = Pred > detect_thresh # Apply detection threshold to generate the binary map.
@@ -526,7 +526,6 @@ def detection_perfomance(model_conv, model_classconv, Pred, detect_thresh, class
         detected_targets = np.vstack([detected_targets, X_targets[i, :] ] )
         break
 
-  # print(detected_targets.shape)      
   detected_targets = np.delete(detected_targets, 0, 0) # Delete first useless line.
   correct_clusters_indices = np.delete(correct_clusters_indices, 0, 0) # Delete first useless line.
   
