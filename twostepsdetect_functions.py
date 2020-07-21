@@ -416,16 +416,17 @@ def find_clusters_andsave(model_classconv, Pred, detect_thresh, classif_thresh, 
           clusters_centers.append( possible_clusters[j, :]  ) # If the classificator returns a value bigger than 'classif_thresh', the cluster will be assumed to be a target.
         j += 1
 
-      # Final_mask = np.zeros( Pred.shape , dtype = np.uint8)
-      if save:
-        Final_mask = np.repeat( bwimg(os.path.join(datab_imgs_path, img_name + ".jpg")).astype(np.uint8), repeats = 3, axis = 2 )
-        for i, cluster in enumerate( clusters_centers ):
-          Final_mask = cv2.circle(Final_mask, (cluster[1], cluster[0]), radius = 7, color = (50, 255, 0), thickness = 2)
+      # # Final_mask = np.zeros( Pred.shape , dtype = np.uint8)
+      # if save:
+      #   Final_mask = bwimg(os.path.join(datab_imgs_path, img_name + ".jpg")).astype(np.uint8)
+      #   Final_mask = np.repeat( np.reshape(Final_mask, (Final_mask.shape[0], Final_mask.shape[1], 1) ), repeats = 3, axis = 2 )
+      #   for i, cluster in enumerate( clusters_centers ):
+      #     Final_mask = cv2.circle(Final_mask, (cluster[1], cluster[0]), radius = 10, color = (50, 255, 0), thickness = 2)
       
-        # showimg(Final_mask)
-        plt.imshow(Final_mask)
-        saveimg(Final_mask, os.path.join(datab_imgs_path, "predictions/" + img_name + "_dbscan_twosteps_prediction.jpg") )
-        np.savetxt(os.path.join(datab_imgs_path, "predictions/" + img_name + "_cluster_centers_prediction.txt"), clusters_centers, "%d" )
+      #   # showimg(Final_mask)
+      #   plt.imshow(Final_mask)
+        # saveimg(Final_mask, os.path.join(datab_imgs_path, "predictions/" + img_name + "_dbscan_twosteps_prediction.jpg") )
+        # np.savetxt(os.path.join(datab_imgs_path, "predictions/" + img_name + "_cluster_centers_prediction.txt"), clusters_centers, "%d" )
 
   elif (clustering == "morphological"):
     Pred_mask = Pred > detect_thresh
@@ -487,7 +488,7 @@ def find_clusters_andsave(model_classconv, Pred, detect_thresh, classif_thresh, 
         saveimg(Final_mask, os.path.join(datab_imgs_path, "predictions/" + img_name + "_dbscan_prediction.jpg") )
         np.savetxt(os.path.join(datab_imgs_path, "predictions/" + img_name + "_cluster_centers_prediction.txt"), clusters_centers, "%d" )
   
-  return Final_mask, clusters_centers
+  return clusters_centers
 
 
 
@@ -509,7 +510,7 @@ def detection_perfomance(model_conv, model_classconv, Pred, detect_thresh, class
   Pred_mask = Pred > detect_thresh # Apply detection threshold to generate the binary map.
   # print(np.sum(Pred_mask))
   # Retreive clusters from predetection heatmap:
-  _, cluster_centers = find_clusters_andsave(model_classconv, Pred, detect_thresh, classif_thresh, img_name, whole_set, save)
+  cluster_centers = find_clusters_andsave(model_classconv, Pred, detect_thresh, classif_thresh, img_name, whole_set, save)
   # Get ground truth position of target pixels:
   tmp_mat = np.loadtxt(datab_imgs_path + "labels/" + img_name + ".txt", delimiter = ' ', usecols = range(4))
   tmp_mat = tmp_mat.astype(int)
@@ -541,6 +542,20 @@ def detection_perfomance(model_conv, model_classconv, Pred, detect_thresh, class
   false_positives_indexes = (~np.isin( np.arange( len(cluster_centers) ), correct_clusters_indices )).astype(int)
   false_positives_indexes = np.where(false_positives_indexes == 1)
   false_positives = np.array(cluster_centers)[false_positives_indexes]
+  
+  # Plot and save
+  if save:
+    Final_mask = bwimg(os.path.join(datab_imgs_path, img_name + ".jpg")).astype(np.uint8)
+    Final_mask = np.repeat( np.reshape(Final_mask, (Final_mask.shape[0], Final_mask.shape[1], 1) ), repeats = 3, axis = 2 )
+    # Draw true positives
+    for i, cluster in enumerate( detected_targets):
+      Final_mask = cv2.circle(Final_mask, (int(cluster[1]), int(cluster[0])), radius = 10, color = (50, 255, 0), thickness = 2)
+    # Draw false positives
+    for i, cluster in enumerate( false_positives ):
+      Final_mask = cv2.circle(Final_mask, (int(cluster[1]), int(cluster[0])), radius = 10, color = (255, 0, 50), thickness = 2)
+    plt.imshow(Final_mask)
+    # saveimg(Final_mask, os.path.join(datab_imgs_path, "predictions/" + img_name + "_dbscan_twosteps_prediction.jpg") )
+    # np.savetxt(os.path.join(datab_imgs_path, "predictions/" + img_name + "_cluster_centers_prediction.txt"), clusters_centers, "%d" )
   
   # Calculate perfomance metrics:
   positives_count = detected_targets.size/2 + undetected_targets.size/2
