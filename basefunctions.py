@@ -58,7 +58,7 @@ def showimg(img): # Displays image
 
 def saveimg(img, path): # Saves image
     # print(path)
-    cv2.imwrite(path, img)  
+    cv2.imwrite(path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR) )  
     return
 
 def varmean_norm(img): # Returns normalized image

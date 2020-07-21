@@ -558,8 +558,8 @@ def detection_perfomance(model_conv, model_classconv, Pred, detect_thresh, class
     for i, cluster in enumerate( undetected_targets ):
       Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-12, int(cluster[0]-12)), pt2 = (int(cluster[1])+12, int(cluster[0]+12)), color = (255, 255, 20), thickness = 2)
     plt.imshow(Final_mask)
-    # saveimg(Final_mask, os.path.join(datab_imgs_path, "predictions/" + img_name + "_dbscan_twosteps_prediction.jpg") )
-    # np.savetxt(os.path.join(datab_imgs_path, "predictions/" + img_name + "_cluster_centers_prediction.txt"), clusters_centers, "%d" )
+    saveimg(Final_mask, os.path.join(datab_imgs_path, "predictions/" + img_name + "_twosteps_prediction.jpg") )
+    np.savetxt(os.path.join(datab_imgs_path, "predictions/" + img_name + "_cluster_centers_prediction.txt"), cluster_centers, "%d" )
   
   # Calculate perfomance metrics:
   positives_count = detected_targets.size/2 + undetected_targets.size/2
