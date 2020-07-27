@@ -394,6 +394,9 @@ def find_clusters_andsave(model_classconv, Pred, detect_thresh, classif_thresh, 
     image_index = whole_set.index(img_name)
     kfold_index = 0
   Pred_mask = Pred > detect_thresh # Generate binary map.
+  if save:
+    Mask = np.reshape(255*Pred_mask, (3000, 2000)).astype('uint8')
+    saveimg(Mask, os.path.join(datab_imgs_path, "predictions/" + img_name + "_predetectbinary.jpg"))
   candidates_coordinates = np.transpose( np.nonzero(Pred_mask) )
   candidates_predval = Pred[candidates_coordinates[:, 0], candidates_coordinates[:, 1]] # Will be used as weights.
   candidates_predval /= np.mean(candidates_predval) # Normalize by mean.
