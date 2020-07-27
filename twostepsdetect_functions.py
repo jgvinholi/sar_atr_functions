@@ -312,6 +312,7 @@ def load_multiple_classification_gt():
 # This function generates the binary heatmap by evaluating the binary predetection model. 
 # KFold index is determined by the position of the specified 'img_name' in the 'whole_set' list. 
 def predict_image(model_conv, img_name, kfold, whole_set):
+  save = 1
   Image_vec_norm = standardize_pixels( bwimg( os.path.join(datab_imgs_path, img_name + ".jpg") ) )
   Image_vec_norm = np.reshape(Image_vec_norm, (1, Image_vec_norm.shape[0], Image_vec_norm.shape[1], 1) )
   if kfold:
@@ -323,6 +324,9 @@ def predict_image(model_conv, img_name, kfold, whole_set):
     Target_map = np.reshape( model_conv[kfold_img_index].predict(Image_vec_norm, verbose = 1), (3000, 2000) )
   else:
     Target_map = np.reshape( model_conv.predict(Image_vec_norm, verbose = 1), (3000, 2000) )
+  if save:
+    Map_255 = (Target_map + np.amin(Target_map) )/np.amax(Target_map)*255
+    saveimg(Map_255, os.path.join(datab_imgs_path, "predictions/" + img_name + "_predetectmap.jpg"))
   return Target_map
 
 
@@ -380,7 +384,6 @@ def predict_class(model_classconv, img_name, trainval_dataset, cluster_center):
 # Three choices of clustering techniques: morphological (advantages: none), DBSCAN (good noise suppression, best perfomance and smoother ROC), agglomerative (smooth ROC, but very noisy).
 # DBSCAN is the technique of choice.
 def find_clusters_andsave(model_classconv, Pred, detect_thresh, classif_thresh, img_name, trainval_dataset, save):
-  clustering = "dbscan"
   predetect_only = 0
   n_split = len(trainval_dataset)//4
   n_images = len(trainval_dataset)
@@ -390,103 +393,43 @@ def find_clusters_andsave(model_classconv, Pred, detect_thresh, classif_thresh, 
   except ValueError:
     image_index = whole_set.index(img_name)
     kfold_index = 0
-
-  if (clustering == "dbscan"):
-      Pred_mask = Pred > detect_thresh # Generate binary map.
-      candidates_coordinates = np.transpose( np.nonzero(Pred_mask) )
-      candidates_predval = Pred[candidates_coordinates[:, 0], candidates_coordinates[:, 1]] # Will be used as weights.
-      candidates_predval /= np.mean(candidates_predval) # Normalize by mean.
-      clusters = DBSCAN(eps = 5.01, min_samples = 8, n_jobs = -1 ).fit(candidates_coordinates) # Run DBSCAN. Maximum distance between pixels is of 5px. 8 samples are needed to form a cluster.
-      unique_labels = np.array(list( set(clusters.labels_) ) ) # Convert to ndarray.
-      unique_nonoise = unique_labels[unique_labels != -1] # Retrieve the number of found clusters
-      
-      possible_clusters = np.zeros( ( len(unique_nonoise), 2 ) , dtype = 'int32')
-      possible_clusters_probs = np.zeros( ( len(unique_nonoise) ) )
-      clusters_centers = []
-      
-      # Calculate found clusters' centers and feed to the classification model. For each cluster, if the result is bigger than a threshold, the cluster is assumed to be a target.
-      j = 0
-      print("Number of clusters to analyse:" + str(unique_nonoise.shape) )
-      for k in set(unique_nonoise):
-        class_member_mask = (clusters.labels_ == k)
-        class_members = candidates_coordinates[class_member_mask, :]
-        possible_clusters[j, :] = np.average( class_members, axis = 0, weights = np.power(candidates_predval[class_member_mask], 2 ) ).astype('int32') # For each cluster, calculates the average position of all cluster members, weighted by the heatmap value of each member. 
-        possible_clusters_probs[j] = np.reshape( predict_class(model_classconv, img_name, trainval_dataset, possible_clusters[j, :]), 1)
-        if possible_clusters_probs[j] > classif_thresh or predetect_only:
-          clusters_centers.append( possible_clusters[j, :]  ) # If the classificator returns a value bigger than 'classif_thresh', the cluster will be assumed to be a target.
-        j += 1
-
-      # # Final_mask = np.zeros( Pred.shape , dtype = np.uint8)
-      # if save:
-      #   Final_mask = bwimg(os.path.join(datab_imgs_path, img_name + ".jpg")).astype(np.uint8)
-      #   Final_mask = np.repeat( np.reshape(Final_mask, (Final_mask.shape[0], Final_mask.shape[1], 1) ), repeats = 3, axis = 2 )
-      #   for i, cluster in enumerate( clusters_centers ):
-      #     Final_mask = cv2.circle(Final_mask, (cluster[1], cluster[0]), radius = 10, color = (50, 255, 0), thickness = 2)
-      
-      #   # showimg(Final_mask)
-      #   plt.imshow(Final_mask)
-        # saveimg(Final_mask, os.path.join(datab_imgs_path, "predictions/" + img_name + "_dbscan_twosteps_prediction.jpg") )
-        # np.savetxt(os.path.join(datab_imgs_path, "predictions/" + img_name + "_cluster_centers_prediction.txt"), clusters_centers, "%d" )
-
-  elif (clustering == "morphological"):
-    Pred_mask = Pred > detect_thresh
-    erode = 1
-    dilation_kernel = np.ones((4, 4), np.uint8)
-    erosion_kernel = np.ones((2, 2), np.uint8) # Erosion kernel is defined as 5x5 window
-    if erode:
-        img_erosion = cv2.erode(np.uint8(Pred_mask)*255, erosion_kernel, iterations=1) 
-        img_dilation = cv2.dilate(img_erosion, dilation_kernel, iterations=1)
-    else:
-        img_dilation = cv2.dilate(np.uint8(Pred_mask)*255, dilation_kernel, iterations=2)
-    img_contours, hierarchy = cv2.findContours(img_dilation, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    img_contourned = np.zeros((img_dilation.shape[0], img_dilation.shape[1], 3))
-    img_contourned[:, :, 0] = img_dilation
-    img_contourned[:, :, 1] = img_dilation
-    img_contourned[:, :, 2] = img_dilation
-    cv2.drawContours(img_contourned, img_contours, -1, (127, 255, 0), 1)
-    cluster_centers = np.zeros( (len(img_contours), 2) )
-    for i in range( cluster_centers.shape[0] ):
-        cluster_centers[i, :] = np.mean( img_contours[i], axis = 0 )
-    reshaped_cluster_centers = np.copy(cluster_centers)
-    reshaped_cluster_centers[:, 1] = reshaped_cluster_centers[:, 0]
-    reshaped_cluster_centers[:, 0] = cluster_centers[:, 1]
-    reshaped_cluster_centers = reshaped_cluster_centers.astype(int)
-    if save:
-        saveimg(img_contourned, os.path.join(datab_imgs_path, "predictions/" + img_name + "_morph_prediction.jpg") )
-        np.savetxt(os.path.join(datab_imgs_path, "predictions/" + img_name + "_cluster_centers_prediction.txt"), reshaped_cluster_centers, "%d" )
-    return img_contourned, reshaped_cluster_centers
-   
+  Pred_mask = Pred > detect_thresh # Generate binary map.
+  candidates_coordinates = np.transpose( np.nonzero(Pred_mask) )
+  candidates_predval = Pred[candidates_coordinates[:, 0], candidates_coordinates[:, 1]] # Will be used as weights.
+  candidates_predval /= np.mean(candidates_predval) # Normalize by mean.
+  clusters = DBSCAN(eps = 5.01, min_samples = 8, n_jobs = -1 ).fit(candidates_coordinates) # Run DBSCAN. Maximum distance between pixels is of 5px. 8 samples are needed to form a cluster.
+  unique_labels = np.array(list( set(clusters.labels_) ) ) # Convert to ndarray.
+  unique_nonoise = unique_labels[unique_labels != -1] # Retrieve the number of found clusters
   
-  elif (clustering == "agglomerative"):
-      Pred_mask = Pred > detect_thresh
-      candidates_coordinates = np.transpose( np.nonzero(Pred_mask) )
-      candidates_predval = Pred[candidates_coordinates[:, 0], candidates_coordinates[:, 1]] # Will be used as weights.
-      candidates_predval /= np.mean(candidates_predval) # Normalize by mean.
-      
-      clusters = fclusterdata(candidates_coordinates, 15, criterion='distance')
-      print(candidates_coordinates.shape, clusters.shape)
-      unique_labels = np.array(list( set(clusters) ) ) # Convert to ndarray.
-      print(unique_labels)
-      unique_nonoise = unique_labels[unique_labels != -1]
-      clusters_centers = np.zeros( ( len(unique_nonoise), 2 ) , dtype = 'int32')
-      colors = [plt.cm.Spectral(each)
-                for each in np.linspace(0, 1, len(unique_nonoise))]
-      j = 0
-      for k, col in zip(set(unique_nonoise), colors):
-        class_member_mask = (clusters == k)
-        class_members = candidates_coordinates[class_member_mask, :]
-        clusters_centers[j, :] = np.average( class_members, axis = 0, weights = candidates_predval[class_member_mask]).astype('int32')
-        print(clusters_centers[j, :])
-        j += 1
+  possible_clusters = np.zeros( ( len(unique_nonoise), 2 ) , dtype = 'int32')
+  possible_clusters_probs = np.zeros( ( len(unique_nonoise) ) )
+  clusters_centers = []
+  
+  # Calculate found clusters' centers and feed to the classification model. For each cluster, if the result is bigger than a threshold, the cluster is assumed to be a target.
+  j = 0
+  print("Number of clusters to analyse:" + str(unique_nonoise.shape) )
+  for k in set(unique_nonoise):
+    class_member_mask = (clusters.labels_ == k)
+    class_members = candidates_coordinates[class_member_mask, :]
+    possible_clusters[j, :] = np.average( class_members, axis = 0, weights = np.power(candidates_predval[class_member_mask], 2 ) ).astype('int32') # For each cluster, calculates the average position of all cluster members, weighted by the heatmap value of each member. 
+    possible_clusters_probs[j] = np.reshape( predict_class(model_classconv, img_name, trainval_dataset, possible_clusters[j, :]), 1)
+    if possible_clusters_probs[j] > classif_thresh or predetect_only:
+      clusters_centers.append( possible_clusters[j, :]  ) # If the classificator returns a value bigger than 'classif_thresh', the cluster will be assumed to be a target.
+    j += 1
 
-      Final_mask = np.zeros( Pred.shape , dtype = np.uint8)
-      if save:
-        for i in range( clusters_centers.shape[0] ):
-          Final_mask = cv2.circle(Final_mask, (clusters_centers[i, 1], clusters_centers[i, 0]), radius = 6, color = 255, thickness = 2)
+  
 
-        showimg(Final_mask)
-        saveimg(Final_mask, os.path.join(datab_imgs_path, "predictions/" + img_name + "_dbscan_prediction.jpg") )
-        np.savetxt(os.path.join(datab_imgs_path, "predictions/" + img_name + "_cluster_centers_prediction.txt"), clusters_centers, "%d" )
+  # # Final_mask = np.zeros( Pred.shape , dtype = np.uint8)
+  # if save:
+  #   Final_mask = bwimg(os.path.join(datab_imgs_path, img_name + ".jpg")).astype(np.uint8)
+  #   Final_mask = np.repeat( np.reshape(Final_mask, (Final_mask.shape[0], Final_mask.shape[1], 1) ), repeats = 3, axis = 2 )
+  #   for i, cluster in enumerate( clusters_centers ):
+  #     Final_mask = cv2.circle(Final_mask, (cluster[1], cluster[0]), radius = 10, color = (50, 255, 0), thickness = 2)
+  
+  #   # showimg(Final_mask)
+  #   plt.imshow(Final_mask)
+    # saveimg(Final_mask, os.path.join(datab_imgs_path, "predictions/" + img_name + "_dbscan_twosteps_prediction.jpg") )
+    # np.savetxt(os.path.join(datab_imgs_path, "predictions/" + img_name + "_cluster_centers_prediction.txt"), clusters_centers, "%d" )
   
   return clusters_centers
 
