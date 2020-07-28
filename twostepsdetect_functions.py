@@ -495,14 +495,16 @@ def detection_perfomance(model_conv, model_classconv, Pred, detect_thresh, class
     Final_mask = np.repeat( np.reshape(Final_mask, (Final_mask.shape[0], Final_mask.shape[1], 1) ), repeats = 3, axis = 2 )
     # Draw true detections
     for i, cluster in enumerate( detected_targets):
-      Final_mask = cv2.circle(Final_mask, (int(cluster[1]), int(cluster[0])), radius = 14, color = (50, 255, 0), thickness = 2)
+      Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-12, int(cluster[0])-12), pt2 = (int(cluster[1])+12, int(cluster[0])+12), color = (255, 0, 255), thickness = 2)
+      # Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-12, int(cluster[0])-12), pt2 = (int(cluster[1])+12, int(cluster[0])+12), color = (0, 255, 0), thickness = 2)
     # Draw false alarms
     for i, cluster in enumerate( false_positives ):
-      Final_mask = cv2.line(Final_mask, pt1 = (int(cluster[1])-12, int(cluster[0]-12)), pt2 = (int(cluster[1])+12, int(cluster[0]+12)), color = (255, 0, 50), thickness = 2)
-      Final_mask = cv2.line(Final_mask, pt1 = (int(cluster[1])-12, int(cluster[0]+12)), pt2 = (int(cluster[1])+12, int(cluster[0]-12)), color = (255, 0, 50), thickness = 2)
+      Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-12, int(cluster[0])-12), pt2 = (int(cluster[1])+12, int(cluster[0])+12), color = (255, 0, 255), thickness = 2)
+      # Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-12, int(cluster[0])-12), pt2 = (int(cluster[1])+12, int(cluster[0])+12), color = (255, 0, 0), thickness = 2)
+     
     # Draw undetected targets
     for i, cluster in enumerate( undetected_targets ):
-      Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-12, int(cluster[0]-12)), pt2 = (int(cluster[1])+12, int(cluster[0]+12)), color = (255, 255, 20), thickness = 2)
+      # Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-12, int(cluster[0]-12)), pt2 = (int(cluster[1])+12, int(cluster[0]+12)), color = (255, 255, 20), thickness = 2)
     plt.imshow(Final_mask)
     saveimg(Final_mask, os.path.join(datab_imgs_path, "predictions/" + img_name + "_twosteps_prediction.jpg") )
     np.savetxt(os.path.join(datab_imgs_path, "predictions/" + img_name + "_cluster_centers_prediction.txt"), cluster_centers, "%d" )
