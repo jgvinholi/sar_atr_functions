@@ -504,6 +504,7 @@ def detection_perfomance(model_conv, model_classconv, Pred, detect_thresh, class
      
     # Draw undetected targets
     for i, cluster in enumerate( undetected_targets ):
+      continue
       # Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-12, int(cluster[0]-12)), pt2 = (int(cluster[1])+12, int(cluster[0]+12)), color = (255, 255, 20), thickness = 2)
     plt.imshow(Final_mask)
     saveimg(Final_mask, os.path.join(datab_imgs_path, "predictions/" + img_name + "_twosteps_prediction.jpg") )
