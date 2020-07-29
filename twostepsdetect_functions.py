@@ -10,6 +10,7 @@ from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import class_weight
 from sklearn.cluster import DBSCAN
+from sklearn import metrics
 from scipy.cluster.hierarchy import fclusterdata
 from numba import jit, njit
 from operator import itemgetter 
@@ -495,17 +496,18 @@ def detection_perfomance(model_conv, model_classconv, Pred, detect_thresh, class
     Final_mask = np.repeat( np.reshape(Final_mask, (Final_mask.shape[0], Final_mask.shape[1], 1) ), repeats = 3, axis = 2 )
     # Draw true detections
     for i, cluster in enumerate( detected_targets):
-      Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-12, int(cluster[0])-12), pt2 = (int(cluster[1])+12, int(cluster[0])+12), color = (255, 0, 255), thickness = 2)
+      Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-24, int(cluster[0])-24), pt2 = (int(cluster[1])+23, int(cluster[0])+23), color = (255, 0, 255), thickness = 1)
       # Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-12, int(cluster[0])-12), pt2 = (int(cluster[1])+12, int(cluster[0])+12), color = (0, 255, 0), thickness = 2)
     # Draw false alarms
     for i, cluster in enumerate( false_positives ):
-      Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-12, int(cluster[0])-12), pt2 = (int(cluster[1])+12, int(cluster[0])+12), color = (255, 0, 255), thickness = 2)
+      continue
+      # Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-24, int(cluster[0])-24), pt2 = (int(cluster[1])+23, int(cluster[0])+23), color = (255, 0, 255), thickness = 1)
       # Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-12, int(cluster[0])-12), pt2 = (int(cluster[1])+12, int(cluster[0])+12), color = (255, 0, 0), thickness = 2)
      
     # Draw undetected targets
     for i, cluster in enumerate( undetected_targets ):
-      continue
-      # Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-12, int(cluster[0]-12)), pt2 = (int(cluster[1])+12, int(cluster[0]+12)), color = (255, 255, 20), thickness = 2)
+      Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-24, int(cluster[0]-24)), pt2 = (int(cluster[1])+23, int(cluster[0]+23)), color = (255, 255, 20), thickness = 2)
+      # continue
     plt.imshow(Final_mask)
     saveimg(Final_mask, os.path.join(datab_imgs_path, "predictions/" + img_name + "_twosteps_prediction.jpg") )
     np.savetxt(os.path.join(datab_imgs_path, "predictions/" + img_name + "_cluster_centers_prediction.txt"), cluster_centers, "%d" )
@@ -585,6 +587,7 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
   mean_f1_scores, mean_precisions, mean_recalls, mean_fprs = np.empty( len(detect_threshs), dtype=object), np.empty( len(detect_threshs), dtype=object), np.empty( len(detect_threshs), dtype=object), np.empty( len(detect_threshs), dtype=object)
   num_cores = multiprocessing.cpu_count() if ( len(classif_threshs) >  multiprocessing.cpu_count()) else len(classif_threshs)
   performance_matrix = np.zeros( ( len(detect_threshs)*len(classif_threshs), 4 ) )
+  auc = np.zeros(len(detect_threshs))
   for j in range( len(detect_threshs) ):
     # Parallelize calls to 'roc_classif' to speed up the process:
     parallel_vars = Parallel(n_jobs = 1, backend = 'sequential', verbose = 10)( delayed(roc_classif)(model_conv, model_classconv, img_names[i], img_dataset, detect_threshs[j], classif_threshs, 1, 0, kfold) for i in range( len(img_names) ) )
@@ -603,6 +606,10 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
   print("Perfomance Matrix:")
   print("(detect threshold, classif threshold, FPR, recall)")
   print(performance_matrix)
+  fpr_aux, recall_aux = np.append(np.insert(mean_fprs[j], 0, 20), 0), np.append(np.insert(mean_recalls[j], 0, mean_recalls[j][0]), 0)
+  auc[j] = metrics.auc(fpr_aux, recall_aux)
+  print('The AUC for the segmentation threshold %.4f is equal to %.5f .\n' % (detect_threshs[j], auc[j]) )
+
 
   roc_matrix = np.zeros((0, 4))
   
