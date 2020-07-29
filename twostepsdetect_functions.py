@@ -606,9 +606,7 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
   print("Perfomance Matrix:")
   print("(detect threshold, classif threshold, FPR, recall)")
   print(performance_matrix)
-  fpr_aux, recall_aux = np.append(np.insert(mean_fprs[j], 0, 20), 0), np.append(np.insert(mean_recalls[j], 0, mean_recalls[j][0]), 0)
-  auc[j] = metrics.auc(fpr_aux, recall_aux)
-  print('The AUC for the segmentation threshold %.4f is equal to %.5f .\n' % (detect_threshs[j], auc[j]) )
+  
 
 
   roc_matrix = np.zeros((0, 4))
@@ -622,6 +620,11 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
     if not badpointflag:
       roc_matrix = np.vstack( ( roc_matrix, performance_matrix[i_perf, :] ) )
   
+  max_fpr = np.amax([ np.amax(mean_fprs[j]) for j in range( len(detect_threshs) ) ] )
+  for j in range( len(detect_threshs) ):
+    fpr_aux, recall_aux = np.append(np.insert(mean_fprs[j], 0, max_fpr), 0), np.append(np.insert(mean_recalls[j], 0, mean_recalls[j][0]), 0)
+    auc[j] = metrics.auc(fpr_aux, recall_aux)
+    print('The AUC for the segmentation threshold %.4f is equal to %.5f .\n' % (detect_threshs[j], auc[j]) )
   # roc_matrix = np.sort( roc_matrix, axis = -1 )
 
   print("ROC Matrix:")
