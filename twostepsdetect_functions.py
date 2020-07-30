@@ -411,7 +411,7 @@ def find_clusters_andsave(model_classconv, Pred, detect_thresh, classif_thresh, 
   
   # Calculate found clusters' centers and feed to the classification model. For each cluster, if the result is bigger than a threshold, the cluster is assumed to be a target.
   j = 0
-  print("Number of clusters to analyse:" + str(unique_nonoise.shape) )
+  # print("Number of clusters to analyze:" + str(unique_nonoise.shape) )
   for k in set(unique_nonoise):
     class_member_mask = (clusters.labels_ == k)
     class_members = candidates_coordinates[class_member_mask, :]
