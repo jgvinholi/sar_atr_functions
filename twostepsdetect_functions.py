@@ -449,10 +449,14 @@ def find_clusters_andsave(model_classconv, Pred, detect_thresh, classif_thresh, 
 # This function recieves the predetection heatmap, calls the cluster localization function 'find_clusters_andsave' and calculates the detection performance indicators (true positive rate, false alarm rate, etc).
 def detection_perfomance(model_conv, model_classconv, Pred, detect_thresh, classif_thresh, img_name, save):
   ctlen = len(classif_thresh)
-  detected_targets = np.zeros((1, 2, ctlen))
-  undetected_targets = np.zeros((1, 2, ctlen))
-  false_positives = np.zeros((1, 2, ctlen))
-  correct_clusters_indices = np.zeros((1, 1, ctlen))
+  correct_clusters_indices, detected_targets, undetected_targets, false_positives, correct_clusters_indices = np.empty(ctlen, dtype=object), np.empty(ctlen, dtype=object), np.empty(ctlen, dtype=object), np.empty(ctlen, dtype=object), np.empty(ctlen, dtype=object)
+  for i in range(ctlen): 
+    correct_clusters_indices[i] = np.zeros(1)
+    detected_targets[i] = np.zeros((1, 2))
+    undetected_targets[i] = np.zeros((1, 2))
+    false_positives[i] = np.zeros((1, 2))
+    correct_clusters_indices[i] = np.zeros((1, 1))
+  
   Img_GT_mask = np.zeros((3000, 2000))
 
   if (isinstance(Pred, int) or isinstance(Pred, float)):
@@ -477,43 +481,41 @@ def detection_perfomance(model_conv, model_classconv, Pred, detect_thresh, class
         # If a cluster is closer than 10px of a ground truth position, the cluster is declared to be a correct detection.
         distance_from_target = np.sqrt( (cluster_centers[h][j][0] - X_targets[i][0])**2 + (cluster_centers[h][j][1] - X_targets[i][1])**2 )
         if distance_from_target < 10: #10px = 10m
-          correct_clusters_indices[:, :, h] = np.vstack([correct_clusters_indices[:, :, h], j])
-          detected_targets[:, :, h] = np.vstack([detected_targets[:, :, h], X_targets[i, :] ] )
+          correct_clusters_indices[h] = np.append(correct_clusters_indices[h], j)
+          detected_targets[h] = np.vstack([detected_targets[h], X_targets[i, :] ] )
           break
 
   for h in range(ctlen): 
-    detected_targets[:, :, h] = np.delete(detected_targets[:, :, h], 0, 0) # Delete first useless line.
-    correct_clusters_indices[:, :, h] = np.delete(correct_clusters_indices[:, :, h], 0, 0) # Delete first useless line.
+    detected_targets[h] = np.delete(detected_targets[h], 0, 0) # Delete first useless line.
+    correct_clusters_indices[h]= np.delete(correct_clusters_indices[h], 0, 0) # Delete first useless line.
     for i in range(X_targets.shape[0]): # Find undetected targets:
-      if ~np.any( np.logical_and(detected_targets[:, 0, h] == X_targets[i, 0], detected_targets[:, 1, h] == X_targets[i, 1]) ):
-        undetected_targets[:, :, h] = np.vstack([undetected_targets[:, :, h], X_targets[i, :]])
-    undetected_targets[:, :, h] = np.delete(undetected_targets[:, :, h], 0, 0)
+      if ~np.any( np.logical_and(detected_targets[h][:, 0] == X_targets[i, 0], detected_targets[h][:, 1] == X_targets[i, 1]) ):
+        undetected_targets[h] = np.vstack([undetected_targets[h], X_targets[i, :]])
+    undetected_targets[h] = np.delete(undetected_targets[h], 0, 0)
 
   
   
   # Find which clusters are false positives:
   for h in range(ctlen):
-    false_positives_indexes = (~np.isin( np.arange( len(cluster_centers[:, :, h]) ), correct_clusters_indices[:, :, h] )).astype(int)
+    false_positives_indexes = (~np.isin( np.arange( len(cluster_centers[h]) ), correct_clusters_indices[h] )).astype(int)
     false_positives_indexes = np.where(false_positives_indexes == 1)
-    false_positives[:, :, h] = np.array(cluster_centers[:, :, h])[false_positives_indexes]
-    false_positives[:, :, h] = np.delete(false_positives[:, :, h], 0, 0)
-  
+    false_positives[h] = np.array(cluster_centers[h])[false_positives_indexes]  
   # Plot and save
   if save:
     Final_mask = bwimg(os.path.join(datab_imgs_path, img_name + ".jpg")).astype(np.uint8)
     Final_mask = np.repeat( np.reshape(Final_mask, (Final_mask.shape[0], Final_mask.shape[1], 1) ), repeats = 3, axis = 2 )
     # Draw true detections
-    for i, cluster in enumerate( detected_targets[:, :, 0]):
+    for i, cluster in enumerate( detected_targets[0]):
       Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-24, int(cluster[0])-24), pt2 = (int(cluster[1])+23, int(cluster[0])+23), color = (255, 0, 255), thickness = 1)
       # Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-12, int(cluster[0])-12), pt2 = (int(cluster[1])+12, int(cluster[0])+12), color = (0, 255, 0), thickness = 2)
     # Draw false alarms
-    for i, cluster in enumerate( false_positives[:, :, 0] ):
+    for i, cluster in enumerate( false_positives[0] ):
       continue
       # Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-24, int(cluster[0])-24), pt2 = (int(cluster[1])+23, int(cluster[0])+23), color = (255, 0, 255), thickness = 1)
       # Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-12, int(cluster[0])-12), pt2 = (int(cluster[1])+12, int(cluster[0])+12), color = (255, 0, 0), thickness = 2)
      
     # Draw undetected targets
-    for i, cluster in enumerate( undetected_targets[:, :, 0] ):
+    for i, cluster in enumerate( undetected_targets[0] ):
       Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-24, int(cluster[0]-24)), pt2 = (int(cluster[1])+23, int(cluster[0]+23)), color = (255, 255, 20), thickness = 2)
       # continue
     plt.imshow(Final_mask)
@@ -523,16 +525,12 @@ def detection_perfomance(model_conv, model_classconv, Pred, detect_thresh, class
   # Calculate perfomance metrics:
   positives_count, precision, recall, fpr, f1_score = np.zeros(ctlen), np.zeros(ctlen), np.zeros(ctlen), np.zeros(ctlen), np.zeros(ctlen)
   for h in range(ctlen):
-    positives_count[h] = detected_targets[:, :, h].size/2 + undetected_targets[:, :, h].size/2
-    precision[h] = (detected_targets[:, :, h].size/2)/(detected_targets[:, :, h].size/2 + false_positives[:, :, h].size/2) if (detected_targets[:, :, h].size > 0 or false_positives[:, :, h].size > 0) else -1
-    recall[h] = (detected_targets[:, :, h].size/2)/positives_count[h]
-    fpr[h] = (false_positives[:, :, h].size/2)/(6) # number of false positives divided by area (km^2)
+    positives_count[h] = detected_targets[h].size/2 + undetected_targets[h].size/2
+    precision[h] = (detected_targets[h].size/2)/(detected_targets[h].size/2 + false_positives[h].size/2) if (detected_targets[h].size > 0 or false_positives[h].size > 0) else -1
+    recall[h] = (detected_targets[h].size/2)/positives_count[h]
+    fpr[h] = (false_positives[h].size/2)/(6) # number of false positives divided by area (km^2)
     f1_score[h] = 2*precision[h]*recall[h]/(precision[h] + recall[h]) if (precision[h] > 0 or recall[h] > 0) else 0
   return f1_score, precision, recall, fpr, detected_targets, undetected_targets, false_positives
-
-
-
-
 
 
 
@@ -633,7 +631,6 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
   max_fpr = np.amax([ np.amax(mean_fprs[j]) for j in range( len(detect_threshs) ) ] )
   for j in range( len(detect_threshs) ):
     fpr_aux, recall_aux = np.append(np.insert(mean_fprs[j], 0, max_fpr), 0), np.append(np.insert(mean_recalls[j], 0, mean_recalls[j][0]), 0)
-    print(fpr_aux, recall_aux)
     auc[j] = metrics.auc(fpr_aux, recall_aux)
     print('The AUC for the segmentation threshold %.4f is equal to %.5f .\n' % (detect_threshs[j], auc[j]) )
   # roc_matrix = np.sort( roc_matrix, axis = -1 )
