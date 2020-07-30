@@ -385,6 +385,7 @@ def predict_class(model_classconv, img_name, trainval_dataset, cluster_center):
 # Three choices of clustering techniques: morphological (advantages: none), DBSCAN (good noise suppression, best perfomance and smoother ROC), agglomerative (smooth ROC, but very noisy).
 # DBSCAN is the technique of choice.
 def find_clusters_andsave(model_classconv, Pred, detect_thresh, classif_thresh, img_name, trainval_dataset, save):
+  ctlen = len(classif_thresh)
   predetect_only = 0
   n_split = len(trainval_dataset)//4
   n_images = len(trainval_dataset)
@@ -407,7 +408,8 @@ def find_clusters_andsave(model_classconv, Pred, detect_thresh, classif_thresh, 
   
   possible_clusters = np.zeros( ( len(unique_nonoise), 2 ) , dtype = 'int32')
   possible_clusters_probs = np.zeros( ( len(unique_nonoise) ) )
-  clusters_centers = []
+  clusters_centers = np.empty(ctlen, dtype=object)
+  for i in range(ctlen): clusters_centers[i] = []
   
   # Calculate found clusters' centers and feed to the classification model. For each cluster, if the result is bigger than a threshold, the cluster is assumed to be a target.
   j = 0
@@ -417,8 +419,9 @@ def find_clusters_andsave(model_classconv, Pred, detect_thresh, classif_thresh, 
     class_members = candidates_coordinates[class_member_mask, :]
     possible_clusters[j, :] = np.average( class_members, axis = 0, weights = np.power(candidates_predval[class_member_mask], 2 ) ).astype('int32') # For each cluster, calculates the average position of all cluster members, weighted by the heatmap value of each member. 
     possible_clusters_probs[j] = np.reshape( predict_class(model_classconv, img_name, trainval_dataset, possible_clusters[j, :]), 1)
-    if possible_clusters_probs[j] > classif_thresh or predetect_only:
-      clusters_centers.append( possible_clusters[j, :]  ) # If the classificator returns a value bigger than 'classif_thresh', the cluster will be assumed to be a target.
+    for i in range(ctlen):
+      if possible_clusters_probs[j] > classif_thresh[i] or predetect_only:
+        clusters_centers[i].append( possible_clusters[j, :]  ) # If the classificator returns a value bigger than 'classif_thresh', the cluster will be assumed to be a target.
     j += 1
 
   
@@ -445,10 +448,11 @@ def find_clusters_andsave(model_classconv, Pred, detect_thresh, classif_thresh, 
 
 # This function recieves the predetection heatmap, calls the cluster localization function 'find_clusters_andsave' and calculates the detection performance indicators (true positive rate, false alarm rate, etc).
 def detection_perfomance(model_conv, model_classconv, Pred, detect_thresh, classif_thresh, img_name, save):
-
-  detected_targets = np.zeros((1, 2))
-  undetected_targets = np.zeros((1, 2))
-  correct_clusters_indices = np.zeros((1, 1))
+  ctlen = len(classif_thresh)
+  detected_targets = np.zeros((1, 2, ctlen))
+  undetected_targets = np.zeros((1, 2, ctlen))
+  false_positives = np.zeros((1, 2, ctlen))
+  correct_clusters_indices = np.zeros((1, 1, ctlen))
   Img_GT_mask = np.zeros((3000, 2000))
 
   if (isinstance(Pred, int) or isinstance(Pred, float)):
@@ -467,45 +471,49 @@ def detection_perfomance(model_conv, model_classconv, Pred, detect_thresh, class
   Y_targets = Y_targets[ Y_targets[:, 0] == 1 , :]
 
   # For each found cluster (possible target), calculate the distance from all true targets based on the ground truth:
-  for i in range(X_targets.shape[0]): 
-    for j in range(len(cluster_centers ) ):
-      # If a cluster is closer than 10px of a ground truth position, the cluster is declared to be a correct detection.
-      distance_from_target = np.sqrt( (cluster_centers[j][0] - X_targets[i][0])**2 + (cluster_centers[j][1] - X_targets[i][1])**2 )
-      if distance_from_target < 10: #10px = 10m
-        correct_clusters_indices = np.vstack([correct_clusters_indices, j])
-        detected_targets = np.vstack([detected_targets, X_targets[i, :] ] )
-        break
+  for h in range(ctlen):
+    for i in range(X_targets.shape[0]): 
+      for j in range(len(cluster_centers[h]) ):
+        # If a cluster is closer than 10px of a ground truth position, the cluster is declared to be a correct detection.
+        distance_from_target = np.sqrt( (cluster_centers[h][j][0] - X_targets[i][0])**2 + (cluster_centers[h][j][1] - X_targets[i][1])**2 )
+        if distance_from_target < 10: #10px = 10m
+          correct_clusters_indices[:, :, h] = np.vstack([correct_clusters_indices[:, :, h], j])
+          detected_targets[:, :, h] = np.vstack([detected_targets[:, :, h], X_targets[i, :] ] )
+          break
 
-  detected_targets = np.delete(detected_targets, 0, 0) # Delete first useless line.
-  correct_clusters_indices = np.delete(correct_clusters_indices, 0, 0) # Delete first useless line.
+  for h in range(ctlen): 
+    detected_targets[:, :, h] = np.delete(detected_targets[:, :, h], 0, 0) # Delete first useless line.
+    correct_clusters_indices[:, :, h] = np.delete(correct_clusters_indices[:, :, h], 0, 0) # Delete first useless line.
+    for i in range(X_targets.shape[0]): # Find undetected targets:
+      if ~np.any( np.logical_and(detected_targets[:, 0, h] == X_targets[i, 0], detected_targets[:, 1, h] == X_targets[i, 1]) ):
+        undetected_targets[:, :, h] = np.vstack([undetected_targets[:, :, h], X_targets[i, :]])
+    undetected_targets[:, :, h] = np.delete(undetected_targets[:, :, h], 0, 0)
+
   
-
-  for i in range(X_targets.shape[0]): # Find undetected targets:
-    if ~np.any( np.logical_and(detected_targets[:, 0] == X_targets[i, 0], detected_targets[:, 1] == X_targets[i, 1]) ):
-      undetected_targets = np.vstack([undetected_targets, X_targets[i, :]])
-  undetected_targets = np.delete(undetected_targets, 0, 0)
   
   # Find which clusters are false positives:
-  false_positives_indexes = (~np.isin( np.arange( len(cluster_centers) ), correct_clusters_indices )).astype(int)
-  false_positives_indexes = np.where(false_positives_indexes == 1)
-  false_positives = np.array(cluster_centers)[false_positives_indexes]
+  for h in range(ctlen):
+    false_positives_indexes = (~np.isin( np.arange( len(cluster_centers[:, :, h]) ), correct_clusters_indices[:, :, h] )).astype(int)
+    false_positives_indexes = np.where(false_positives_indexes == 1)
+    false_positives[:, :, h] = np.array(cluster_centers[:, :, h])[false_positives_indexes]
+    false_positives[:, :, h] = np.delete(false_positives[:, :, h], 0, 0)
   
   # Plot and save
   if save:
     Final_mask = bwimg(os.path.join(datab_imgs_path, img_name + ".jpg")).astype(np.uint8)
     Final_mask = np.repeat( np.reshape(Final_mask, (Final_mask.shape[0], Final_mask.shape[1], 1) ), repeats = 3, axis = 2 )
     # Draw true detections
-    for i, cluster in enumerate( detected_targets):
+    for i, cluster in enumerate( detected_targets[:, :, 0]):
       Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-24, int(cluster[0])-24), pt2 = (int(cluster[1])+23, int(cluster[0])+23), color = (255, 0, 255), thickness = 1)
       # Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-12, int(cluster[0])-12), pt2 = (int(cluster[1])+12, int(cluster[0])+12), color = (0, 255, 0), thickness = 2)
     # Draw false alarms
-    for i, cluster in enumerate( false_positives ):
+    for i, cluster in enumerate( false_positives[:, :, 0] ):
       continue
       # Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-24, int(cluster[0])-24), pt2 = (int(cluster[1])+23, int(cluster[0])+23), color = (255, 0, 255), thickness = 1)
       # Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-12, int(cluster[0])-12), pt2 = (int(cluster[1])+12, int(cluster[0])+12), color = (255, 0, 0), thickness = 2)
      
     # Draw undetected targets
-    for i, cluster in enumerate( undetected_targets ):
+    for i, cluster in enumerate( undetected_targets[:, :, 0] ):
       Final_mask = cv2.rectangle(Final_mask, pt1 = (int(cluster[1])-24, int(cluster[0]-24)), pt2 = (int(cluster[1])+23, int(cluster[0]+23)), color = (255, 255, 20), thickness = 2)
       # continue
     plt.imshow(Final_mask)
@@ -513,11 +521,13 @@ def detection_perfomance(model_conv, model_classconv, Pred, detect_thresh, class
     np.savetxt(os.path.join(datab_imgs_path, "predictions/" + img_name + "_cluster_centers_prediction.txt"), cluster_centers, "%d" )
   
   # Calculate perfomance metrics:
-  positives_count = detected_targets.size/2 + undetected_targets.size/2
-  precision = (detected_targets.size/2)/(detected_targets.size/2 + false_positives.size/2) if (detected_targets.size > 0 or false_positives.size > 0) else -1
-  recall = (detected_targets.size/2)/positives_count
-  fpr = (false_positives.size/2)/(6) # number of false positives divided by area (km^2)
-  f1_score = 2*precision*recall/(precision + recall) if (precision > 0 or recall > 0) else 0
+  positives_count, precision, recall, fpr, f1_score = np.zeros(ctlen), np.zeros(ctlen), np.zeros(ctlen), np.zeros(ctlen), np.zeros(ctlen)
+  for h in range(ctlen):
+    positives_count[h] = detected_targets[:, :, h].size/2 + undetected_targets[:, :, h].size/2
+    precision[h] = (detected_targets[:, :, h].size/2)/(detected_targets[:, :, h].size/2 + false_positives[:, :, h].size/2) if (detected_targets[:, :, h].size > 0 or false_positives[:, :, h].size > 0) else -1
+    recall[h] = (detected_targets[:, :, h].size/2)/positives_count[h]
+    fpr[h] = (false_positives[:, :, h].size/2)/(6) # number of false positives divided by area (km^2)
+    f1_score[h] = 2*precision[h]*recall[h]/(precision[h] + recall[h]) if (precision[h] > 0 or recall[h] > 0) else 0
   return f1_score, precision, recall, fpr, detected_targets, undetected_targets, false_positives
 
 
@@ -540,13 +550,13 @@ def predict_and_save(model_conv, model_classconv, img_names, detect_thresh, clas
   f1_score, precision, recall, fpr, detected_targets, undetected_targets, false_positives = zip(*parallel_detectperf)
   
   # Generate a table containing the number of detected targets, false positives and undetected targets for each prediction:
-  for i, img_name in enumerate(img_names):
-    tp[i], fp[i], fn[i] = detected_targets[i].size/2, false_positives[i].size/2, undetected_targets[i].size/2
+  # for i, img_name in enumerate(img_names):
+  #   tp[i], fp[i], fn[i] = detected_targets[i].size/2, false_positives[i].size/2, undetected_targets[i].size/2
 
-  print("| TP    FP    FN   Image |")
-  print("|-------------------------|")
-  for i, img_name in enumerate(img_names):
-    print(" %d    %d    %d    %s" % (tp[i], fp[i], fn[i], img_name))
+  # print("| TP    FP    FN   Image |")
+  # print("|-------------------------|")
+  # for i, img_name in enumerate(img_names):
+  #   print(" %d    %d    %d    %s" % (tp[i], fp[i], fn[i], img_name))
     
   return detected_targets, false_positives
 
@@ -558,8 +568,8 @@ def predict_and_save(model_conv, model_classconv, img_names, detect_thresh, clas
 
 # This function executes the 'detection_perfomance' function for each classification model threshold, specified by 'classif_threshs' array, and plots the ROC curve (if requested).
 def roc_classif(model_conv, model_classconv, img_name, img_dataset, detect_thresh, classif_threshs, predict, Pred_mask, kfold):
-    detected_targets, undetected_targets, false_positives = np.empty((len(classif_threshs)), dtype=object), np.empty((len(classif_threshs)), dtype=object), np.empty((len(classif_threshs)), dtype=object)
-    f1_score, precision, recall, fpr = np.zeros( len(classif_threshs) ), np.zeros( len(classif_threshs) ), np.zeros( len(classif_threshs) ), np.zeros( len(classif_threshs) )
+    # detected_targets, undetected_targets, false_positives = np.empty((len(classif_threshs)), dtype=object), np.empty((len(classif_threshs)), dtype=object), np.empty((len(classif_threshs)), dtype=object)
+    # f1_score, precision, recall, fpr = np.zeros( len(classif_threshs) ), np.zeros( len(classif_threshs) ), np.zeros( len(classif_threshs) ), np.zeros( len(classif_threshs) )
     classif_threshs = np.sort(classif_threshs, axis=None)
 
     # Call the predetection predictor if requested to get the prediction heatmap:
@@ -567,10 +577,10 @@ def roc_classif(model_conv, model_classconv, img_name, img_dataset, detect_thres
       Pred_mask = np.reshape( predict_image(model_conv, img_name, 1, img_dataset), (3000, 2000) ) if kfold else np.reshape( predict_image(img_name, 0, 0), (3000, 2000) )
     
     # With the provided prediction heatmap, find cluster, make the classification prediction and calculate the perfomance parameters for all classification thresholds 'classif_threshs':
-    for i in range(len( classif_threshs ) ) :
-      f1_score[i], precision[i], recall[i], fpr[i], detected_targets[i], undetected_targets[i], false_positives[i] = detection_perfomance(model_conv, model_classconv, Pred_mask, detect_thresh, classif_threshs[i], img_name, 0)
+    # for i in range(len( classif_threshs ) ) :
+      # f1_score[i], precision[i], recall[i], fpr[i], detected_targets[i], undetected_targets[i], false_positives[i] = detection_perfomance(model_conv, model_classconv, Pred_mask, detect_thresh, classif_threshs[i], img_name, 0)
     
-
+    f1_score, precision, recall, fpr, detected_targets, undetected_targets, false_positives = detection_perfomance(model_conv, model_classconv, Pred_mask, detect_thresh, classif_threshs, img_name, 0)
     best_f1 = np.amax(f1_score)
     best_classif_threshs_index = np.argmax(f1_score)
     best_classif_threshs = classif_threshs[best_classif_threshs_index] 
