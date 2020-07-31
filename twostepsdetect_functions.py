@@ -612,7 +612,7 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
     zerop8_index = (mean_fprs[j] <= 0.8).nonzero()
     zerop8_index = zerop8_index[0][0]
     print(zerop8_index)
-    fpr_aux, recall_aux = mean_fprs[j][zerop8_index:-1], mean_recalls[j][zerop8_index:-1]
+    fpr_aux, recall_aux = mean_fprs[j][zerop8_index:], mean_recalls[j][zerop8_index:]
     recall_aux = np.insert(recall_aux, 0, recall_aux[0]) if fpr_aux[0] < 0.8 else recall_aux
     fpr_aux = np.insert(fpr_aux, 0, 0.8) if fpr_aux[0] < 0.8 else fpr_aux
     print(fpr_aux)
