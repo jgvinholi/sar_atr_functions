@@ -609,10 +609,14 @@ def roc_multiple_images(model_conv, model_classconv, img_names, img_dataset, cla
     print("Predetection Threshold = " + str(detect_threshs[j]) )
     print( np.stack( (classif_threshs, mean_fprs[j], mean_recalls[j]), axis = 1 ) )
     print("Max F1-Score = " + str( np.amax(mean_f1_scores[j]) ) + " for classif threshold = " + str( classif_threshs[ np.argmax(mean_f1_scores[j]) ] ) )
-    0p8_index = (mean_fprs[j] <= 0.8).nonzero()[-1]
-    fpr_aux, recall_aux = mean_fprs[j][0p8_index:-1], mean_recalls[j][0p8_index:-1]
+    zerop8_index = (mean_fprs[j] <= 0.8).nonzero()
+    zerop8_index = zerop8_index[0][0]
+    print(zerop8_index)
+    fpr_aux, recall_aux = mean_fprs[j][zerop8_index:-1], mean_recalls[j][zerop8_index:-1]
     recall_aux = np.insert(recall_aux, 0, recall_aux[0]) if fpr_aux[0] < 0.8 else recall_aux
     fpr_aux = np.insert(fpr_aux, 0, 0.8) if fpr_aux[0] < 0.8 else fpr_aux
+    print(fpr_aux)
+    print(recall_aux)
     auc[j] = metrics.auc(fpr_aux, recall_aux)
     print('The AUC (FAR=[0, 0.8]) for the segmentation threshold %.4f is equal to %.5f .\n' % (detect_threshs[j], auc[j]) )
 
