@@ -520,7 +520,7 @@ def detection_perfomance(model_conv, model_classconv, Pred, detect_thresh, class
       # continue
     plt.imshow(Final_mask)
     saveimg(Final_mask, os.path.join(datab_imgs_path, "predictions/" + img_name + "_twosteps_prediction.jpg") )
-    np.savetxt(os.path.join(datab_imgs_path, "predictions/" + img_name + "_cluster_centers_prediction.txt"), cluster_centers, "%d" )
+    np.savetxt(os.path.join(datab_imgs_path, "predictions/" + img_name + "_cluster_centers_prediction.txt"), cluster_centers[0], "%d" )
   
   # Calculate perfomance metrics:
   positives_count, precision, recall, fpr, f1_score = np.zeros(ctlen), np.zeros(ctlen), np.zeros(ctlen), np.zeros(ctlen), np.zeros(ctlen)
@@ -534,7 +534,7 @@ def detection_perfomance(model_conv, model_classconv, Pred, detect_thresh, class
 
 
 
-
+ 
 
 # Given a list of images, execute the whole prediction and classification process and save all obtained information and position of targets.
 def predict_and_save(model_conv, model_classconv, img_names, detect_thresh, classif_thresh, save):
@@ -547,15 +547,15 @@ def predict_and_save(model_conv, model_classconv, img_names, detect_thresh, clas
       delayed(detection_perfomance)(model_conv, model_classconv, 0, detect_thresh, classif_thresh, img_names[i], save) for i in range( len(img_names) ) )
   f1_score, precision, recall, fpr, detected_targets, undetected_targets, false_positives = zip(*parallel_detectperf)
   
-  # Generate a table containing the number of detected targets, false positives and undetected targets for each prediction:
-  # for i, img_name in enumerate(img_names):
-  #   tp[i], fp[i], fn[i] = detected_targets[i].size/2, false_positives[i].size/2, undetected_targets[i].size/2
-
-  # print("| TP    FP    FN   Image |")
-  # print("|-------------------------|")
-  # for i, img_name in enumerate(img_names):
-  #   print(" %d    %d    %d    %s" % (tp[i], fp[i], fn[i], img_name))
-    
+  #Generate a table containing the number of detected targets, false positives and undetected targets for each prediction:
+  for i, img_name in enumerate(img_names):
+    tp[i], fp[i], fn[i] = detected_targets[i][0].size/2, false_positives[i][0].size/2, undetected_targets[i][0].size/2
+  print("Classification Threshold = %.2f" % classif_thresh[0])
+  print("| TP    FP    FN   Image |")
+  print("|-------------------------|")
+  for i, img_name in enumerate(img_names):
+    print(" %d    %d    %d    %s" % (tp[i], fp[i], fn[i], img_name))
+  print("Total Pd=%.4f \n Total FAR=%.4f" % (np.sum(tp)/( (tp[0] + fn[0])*len(img_names) ), np.sum(fp)/(6*len(img_names) ) ) )
   return detected_targets, false_positives
 
 
