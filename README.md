@@ -1,6 +1,8 @@
-## Source code for the article CNN Based Change Detection Algorithm for Wavelenth Resolution SAR Images
-
+## CNN Based Change Detection Algorithm for Wavelenth Resolution SAR Images
+#### Published on IEEE Geoscience and Remote Sensing Letters
 #### All functions used in the article are presented in this repository. Feel free to use it as you like, but please cite the article.
+
+
 ##### DOI: 10.1109/LGRS.2020.3027382
 ##### Link (Open Access): https://ieeexplore.ieee.org/document/9217564
 
